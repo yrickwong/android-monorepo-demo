@@ -100,6 +100,9 @@ class Assembly internal constructor(
 
     private val specs = mutableListOf<MountSpec>()
     private val attached = mutableListOf<Page>()
+    // Remember which ViewGroup we mounted each page into, so replace() can
+    // remove the exact view from the exact slot even when slots differ.
+    private val pageMountTargets = mutableMapOf<Page, ViewGroup>()
     private var installed = false
 
     /** Read-only snapshot of attached pages, in declaration order. */
@@ -180,6 +183,7 @@ class Assembly internal constructor(
             val view = page.performAttach(ctx, mountTarget)
             mountTarget.addView(view, defaultLayoutParams(mountTarget))
             attached += page
+            pageMountTargets[page] = mountTarget
             Logger.d(
                 LOG_TAG,
                 "[$assemblyId] attached page #$index id=$pageId into ${describe(mountTarget)}",
@@ -188,6 +192,92 @@ class Assembly internal constructor(
             Logger.e(LOG_TAG, "[$assemblyId] failed to attach page #$index: ${t.message}")
             throw t
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Recomposition: host-driven structural change.
+    // ------------------------------------------------------------------
+
+    /**
+     * Tear down every currently-attached Page and re-install the
+     * composition declared in [block]. The host's own lifecycle, scope,
+     * ViewModelStore, and [hostLocal] / [hostBus] are **not** affected;
+     * only this Assembly's pages and its [assemblyLocal] entries are.
+     *
+     * Why this lives on Assembly (and is callable only by the Host):
+     *  - Page does not, and intentionally cannot, reach the Assembly
+     *    instance — Pages aren't allowed to swap their siblings out from
+     *    under each other. Letting them mutate composition turns the
+     *    "page is a small UI slice" contract into "page is a router",
+     *    which is exactly the Fragment trap AssembleKit exists to avoid.
+     *  - The host already owns the decision of "what is on screen right
+     *    now" via its lifecycle + the initial `assemble {}` block.
+     *    `replace` is the second entry point of that same decision tree:
+     *    "from this event onward, the screen looks like THIS instead".
+     *
+     * Typical use: Activity listens for an event on `hostBus` and reacts
+     * by reshaping its assembly.
+     *
+     * ```kotlin
+     * // inside LoginActivity, e.g. after credentials succeed:
+     * hostBus.on<LoginEvent.LoginFinished>(lifecycleScope) {
+     *     loginAssembly.replace {
+     *         +SuccessHeaderPage() at R.id.slot_header
+     *         +ContinueButtonPage() at R.id.slot_bottom
+     *     }
+     * }
+     * ```
+     *
+     * Trade-offs:
+     *  - ViewModels of removed Pages remain in the host's ViewModelStore
+     *    until the host is destroyed. For long-lived assemblies this is
+     *    rarely a leak; for short-lived bottom-sheets it can grow. A
+     *    future `Assembly.dispose()` will evict eagerly.
+     *  - assemblyLocal entries are wiped before the new block runs, so
+     *    the new composition starts from "whatever the host provided"
+     *    plus its own provides. This is the predictable choice — if you
+     *    want a value to survive a replace, put it on hostLocal.
+     */
+    fun replace(block: AssemblyBuilder.() -> Unit) {
+        check(installed) {
+            "Assembly.replace() called before initial install — " +
+                "use assemble { … } for the first composition."
+        }
+
+        // Tear down current pages in reverse declaration order so any
+        // sibling dependencies unwind cleanly.
+        for (page in attached.asReversed()) {
+            val mountTarget = pageMountTargets[page]
+            val view = page.view
+            if (view != null && mountTarget != null) {
+                try {
+                    mountTarget.removeView(view)
+                } catch (t: Throwable) {
+                    Logger.w(LOG_TAG, "[$assemblyId] removeView during replace failed: ${t.message}")
+                }
+            }
+            try {
+                page.performDetach()
+            } catch (t: Throwable) {
+                Logger.w(LOG_TAG, "[$assemblyId] performDetach during replace failed: ${t.message}")
+            }
+        }
+        attached.clear()
+        pageMountTargets.clear()
+
+        // Fresh provides surface for the new composition; hostLocal is
+        // untouched so anything the host wired stays visible.
+        assemblyLocal.clearLocalEntries()
+
+        // Re-collect specs from the new builder block, then re-attach.
+        specs.clear()
+        AssemblyBuilder(this).block()
+        val newSpecs = specs.toList()
+        newSpecs.forEachIndexed { index, spec ->
+            attachPage(spec, index)
+        }
+
+        Logger.d(LOG_TAG, "[$assemblyId] replaced composition (${newSpecs.size} pages)")
     }
 
     private fun derivePageId(page: Page, index: Int): String =

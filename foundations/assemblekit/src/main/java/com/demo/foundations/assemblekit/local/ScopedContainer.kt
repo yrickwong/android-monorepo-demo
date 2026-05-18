@@ -98,6 +98,17 @@ class ScopedContainer internal constructor(
     /** True iff [resolve] would find a value (in this scope or any parent). */
     fun has(key: PageContextKey<*>): Boolean = resolve<Any>(@Suppress("UNCHECKED_CAST") (key as PageContextKey<Any>)) != null
 
+    /**
+     * Drop every entry from *this* scope. Parents are untouched, so a
+     * later [resolve] can still bubble up to whatever the host provided.
+     *
+     * Used by [Assembly.replace] to give the new composition a clean
+     * 'provides' surface without leaking entries from the previous one.
+     */
+    internal fun clearLocalEntries() {
+        values.clear()
+    }
+
     override fun toString(): String =
         "ScopedContainer($debugName, ${values.size} entries, parent=${parent?.debugName ?: "-"})"
 

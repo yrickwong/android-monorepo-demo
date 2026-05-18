@@ -202,6 +202,13 @@ abstract class Page(
     internal var view: View? = null
         private set
 
+    /**
+     * Reference to the host-lifecycle observer registered in [bridgeHostLifecycle],
+     * kept so [performDetach] can unregister it. Without this we'd leak one
+     * observer per page every time [Assembly.replace] swaps the composition.
+     */
+    private var hostObserver: LifecycleEventObserver? = null
+
     internal fun performAttach(ctx: PageContext, parent: ViewGroup): View {
         require(!::context.isInitialized) { "Page $pageId already attached" }
         context = ctx
@@ -229,6 +236,22 @@ abstract class Page(
             Logger.w(LOG_TAG, "onDestroy threw for $pageId: ${t.message}")
         }
         view = null
+
+        // Unsubscribe from host's lifecycle so we don't pile up observers
+        // across Assembly.replace cycles. Guarded because performDetach
+        // also runs when the host itself is being destroyed, at which
+        // point the observer list is already being torn down.
+        hostObserver?.let { obs ->
+            if (::context.isInitialized) {
+                try {
+                    context.host.lifecycle.removeObserver(obs)
+                } catch (_: Throwable) {
+                    /* host already gone, fine */
+                }
+            }
+        }
+        hostObserver = null
+
         if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
             lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         }
@@ -255,21 +278,21 @@ abstract class Page(
             lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         }
 
-        // …then track future transitions.
-        host.lifecycle.addObserver(
-            LifecycleEventObserver { _, event ->
-                // Don't replay below current state to avoid duplicate events.
-                when (event) {
-                    Lifecycle.Event.ON_START,
-                    Lifecycle.Event.ON_RESUME,
-                    Lifecycle.Event.ON_PAUSE,
-                    Lifecycle.Event.ON_STOP,
-                    -> lifecycleRegistry.handleLifecycleEvent(event)
-                    Lifecycle.Event.ON_DESTROY -> performDetach()
-                    else -> Unit
-                }
-            },
-        )
+        // …then track future transitions. Save the observer reference
+        // so performDetach can unregister it.
+        val obs = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START,
+                Lifecycle.Event.ON_RESUME,
+                Lifecycle.Event.ON_PAUSE,
+                Lifecycle.Event.ON_STOP,
+                -> lifecycleRegistry.handleLifecycleEvent(event)
+                Lifecycle.Event.ON_DESTROY -> performDetach()
+                else -> Unit
+            }
+        }
+        hostObserver = obs
+        host.lifecycle.addObserver(obs)
     }
 
     @Suppress("unused")
