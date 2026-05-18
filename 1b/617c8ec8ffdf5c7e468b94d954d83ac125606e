@@ -1,0 +1,24 @@
+docs/module-rules.md
+  s_b9abb10d3dfe92::t_efb79bc6a60628 32,35-36,116-125
+README.md
+  s_b9abb10d3dfe92::t_b5d4e8c01b0eec 3,14-15,67-73
+docs/architecture.md
+  s_b9abb10d3dfe92::t_866f05b80ae7af 26,37,51-54,79
+  s_b9abb10d3dfe92::t_f0f7d4bb446bfa 136-198,234-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "1b617c8ec8ffdf5c7e468b94d954d83ac125606e",
+  "prompts": {},
+  "sessions": {
+    "s_b9abb10d3dfe92": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "1210b0e8-49a7-49d7-8f06-15cb8f453abd",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
