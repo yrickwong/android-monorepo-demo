@@ -1,0 +1,28 @@
+AGENTS.md
+  s_f2e5e222cb1eed::t_a212dbce7c5142 97-145,147-148
+docs/mvi-rules.md
+  s_f2e5e222cb1eed::t_d8c74c97e2d766 1-247
+docs/architecture.md
+  s_f2e5e222cb1eed::t_04473cd99f25f2 203-211,215,217-218
+  s_f2e5e222cb1eed::t_94b7000520326b 324
+  s_f2e5e222cb1eed::t_877916e08890b7 280
+  s_f2e5e222cb1eed::t_ebea65fe3199fb 230-233,235,238-246,249-262,264-279,281-282,284-297,299-306,311,313,318,321-323,325-336,338,340
+README.md
+  s_f2e5e222cb1eed::t_f31b0f03428646 74-77,79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "f925639055af03b6a58275af0a6054172ee06716",
+  "prompts": {},
+  "sessions": {
+    "s_f2e5e222cb1eed": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "8f440928-e408-4749-bdd8-fdc46c270dfd",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
