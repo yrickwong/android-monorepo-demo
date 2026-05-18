@@ -200,13 +200,22 @@ class LoginActivity : PageHostActivity() {
 
 v2 把上面的"一个页面装三个 Page"扩展到**真实业务页面常见的四种增量需求**——全部以**最小可读**为目标，不引入新概念栈。
 
+> **硬约束（写业务前必读）**：所有业务页面**必须**走 `assemble {}` + Mavericks。
+> 任何"页面里有可观察状态"的代码——网络回包、用户输入、loading/失败、列表数据——
+> 一律以 `MavericksState` + `MavericksViewModel`（或 `PageViewModel`）持有，Pages 通过
+> `viewModel.onEach(prop)` / `onAsync(prop)` 订阅切片，**严禁**在 Page 里直接 `collect`
+> 一个 `Repository.someFlow` 或者自己持有 `MutableStateFlow`。规则全文与反模式清单见
+> [`docs/mvi-rules.md`](mvi-rules.md)，强制性条款写在 [`AGENTS.md`](../AGENTS.md) Rule 2。
+> 这条约束的存在是为了让"两套真相源 (repo flow + Mavericks state) 漂移"
+> 这种最常见的 bug 变成一条**结构性不可能发生**的属性，而不是靠 CR 抓。
+
 | 主题 | 入口 API | 解决了什么问题 |
 | --- | --- | --- |
 | Page 抽象分层 | `Page` (base) / `ViewPage` / `ComposablePage` (stub) | 让框架核心和 UI 渲染机制解耦——今天写 XML，明天接 Compose，无需改 `Assembly` / `PageContext` |
-| Scoped context locals | `provides(key, value)` / `consume(key)` / `requireConsume(key)` | 仓库/点击桥/主题 token 等"页面里所有人都要拿"的值，不再走构造函数链；类型化 key，跨模块不会撞名 |
+| Scoped context locals | `provides(key, value)` / `consume(key)` / `requireConsume(key)` | 把"页面内所有 Page 都要拿的东西"（首选**就是这个页面的 Mavericks Shell VM**）一次性放在 assembly scope，子级用 `requireConsume` 取，零构造参数透传；类型化 key，跨模块不会撞名 |
 | 多槽位挂载 | `+MyPage() at R.id.slot_xxx` | 同一个布局想塞多个 Page、又不想都堆进 `LinearLayout`；缺槽位时**install 阶段抛错**，比运行时空指针好定位 |
-| Host 驱动 replace | `assembly.replace { … }` | 登录成功/AB 切换/抽屉切换等"结构性变化"，由**宿主**整体重组当前 Assembly；Page 自己拿不到 Assembly 句柄——这是有意的，避免 Page 互相 swap |
-| 列表渲染 | `ListPage<T>(itemsFlow, ItemBinder)` / `ItemBinder<T>` | 列表行复用父 Page 的 `PageContext`（context transparency），1000 行 ≠ 1000 个生命周期；DiffUtil 内置 |
+| Host 驱动 replace | `assembly.replace { … }` | 登录成功/AB 切换/抽屉切换等"结构性变化"，由**宿主**整体重组当前 Assembly；触发条件**必须**从 Mavericks 状态来（`viewModel.onEach(State::structuralFlag)`），不能由 Page 自己经事件总线请求——保证旋屏/进程死后重建后结构正确 |
+| 列表渲染 | `ListPage<T>(itemsFlow, ItemBinder)` / `ItemBinder<T>` | 列表行复用父 Page 的 `PageContext`（context transparency），1000 行 ≠ 1000 个生命周期；`itemsFlow` 推荐从 `viewModel.stateFlow.map { it.xxx }.distinctUntilChanged()` 派生，**不要**直接喂 repo 的 hot flow |
 
 **Scoped locals 的三层 fallback**（与三层 scope 一一对应）：
 
@@ -218,64 +227,117 @@ ScopedContainer:  pageLocal ──parent──▶ assemblyLocal ──parent─�
 
 调用约定：
 
-- 模块顶层 `val FeedRepositoryKey = pageContextKey<FeedRepository>("feed.repository")`，**identity-keyed**（实例即身份），同名 key 不同 `val` 互不影响。
-- 在 `assemble { provides(FeedRepositoryKey, repo); … }` 里在装配阶段一次性放好；
-- 在 Page / Binder 里用 `consume(FeedRepositoryKey)` 或 `requireConsume(...)`（缺失时抛带定位信息的错）。
+- 模块顶层用 `pageContextKey<T>("ns.symbol")` 声明，**identity-keyed**（实例即身份），同名 key 不同 `val` 互不影响。
+- 业务侧**强约定**：每个业务页面持有一个 _Shell ViewModel_（`MavericksViewModel<TState>`），并在 assembly 顶层 `provides(XxxShellViewModelKey, vm)`。所有子 Page / `ItemBinder` 用 `requireConsume(XxxShellViewModelKey)` 拿同一个实例——这就是该页面的"唯一真相源"。
+- 仓库 (`Repository`)、点击 lambda 等**不要**再单独 `provides` 进 PageContext。它们是 VM 的实现细节，VM 暴露的应当是 `MavericksState` 切片和命令方法（`refresh()` / `like(id)` / `toggleBanner()`）。
+- `consume(key)` 在缺失时返回 `null`；`requireConsume(key)` 缺失时抛带定位信息的错——业务侧默认用后者。
 
-**多槽位 + replace 的契约**：
+**Feed 走读：从 Activity 到行级 Binder**（`:features:feed` 的真实代码）：
 
 ```kotlin
-// XML 里只是几个 ViewGroup 槽位
-assemble {                                     // 不指定默认 container
-    provides(FeedRepositoryKey, repository)
-    provides(NoteClickKey) { note -> … }
-    +FeedHeaderPage()                at R.id.feed_header_slot
-    +FeedListPage(repository.notes)  at R.id.feed_body_slot
-    +FeedFooterPage()                at R.id.feed_footer_slot
-}.also { feedAssembly = it }
+// 1. 顶层 key（模块顶层 val）
+val FeedShellViewModelKey = pageContextKey<FeedShellViewModel>("feed.shellViewModel")
 
-hostBus.on<FeedEvent.ToggleBannerRequested>(lifecycleScope) {
-    feedAssembly.replace {                     // 宿主决定换什么
-        provides(FeedRepositoryKey, repository)
-        provides(NoteClickKey) { note -> … }
-        +FeedHeaderPage()                at R.id.feed_header_slot
-        if (bannerVisible) +FeedBannerPage()   at R.id.feed_body_slot
-        +FeedListPage(repository.notes)  at R.id.feed_body_slot
-        +FeedFooterPage()                at R.id.feed_footer_slot
+// 2. State + ViewModel（单一 SoT）
+data class FeedShellState(
+    val notes: Async<List<Note>> = Uninitialized,
+    val showBanner: Boolean = false,
+) : MavericksState {
+    val noteList: List<Note> get() = notes() ?: emptyList()
+}
+
+class FeedShellViewModel(
+    initialState: FeedShellState,
+    private val repo: FeedRepository,
+) : MavericksViewModel<FeedShellState>(initialState) {
+    init { refresh() }
+    fun refresh() = suspend { repo.load() }.execute { copy(notes = it) }
+    fun likeOne(id: String) = setState { copy(notes = Success(repo.like(id))) }
+    fun toggleBanner()      = setState { copy(showBanner = !showBanner) }
+
+    companion object : MavericksViewModelFactory<FeedShellViewModel, FeedShellState> {
+        override fun create(vc: ViewModelContext, s: FeedShellState) =
+            FeedShellViewModel(s, FeedRepository())
     }
 }
-```
 
-`replace` 的语义边界：
+// 3. Activity：建 VM → 装 assembly → 用 onEach 把"结构性状态"翻译成 replace
+class FeedActivity : AppCompatActivity(R.layout.activity_feed), MavericksView {
+    override fun invalidate() = Unit                    // 用 onEach 选择性订阅
+    private lateinit var assembly: Assembly
+    private lateinit var viewModel: FeedShellViewModel
 
-- 按**声明逆序**逐页 `performDetach` → 移除视图 → 清空 `assemblyLocal` 条目；`hostLocal` / `hostBus` / ViewModel store **不动**——所以 Page 关心的"我所在的宿主"那一面跨 replace 是稳定的。
-- 旧 Page 的 `LifecycleEventObserver` 在 `performDetach` 里**显式 remove**（v2 顺手修了一个潜在的观察者泄漏：见 `Page.hostObserver`）。
-- 新组合的 `provides` 必须在新 block 内重新声明——这是有意的"明文优先"，让"替换后还看得到旧 provides"这种隐含状态不可能存在。
-- ViewModel 不被驱逐；同一 Page 类型再次出现时会拿到上一次的 VM（key 仍是 `{pageId}::{VMClass}`）。短生命的 bottom-sheet 类场景未来会加 `Assembly.dispose()` 显式释放。
+    override fun onCreate(b: Bundle?) {
+        super.onCreate(b)
+        viewModel = MavericksViewModelProvider.get(
+            viewModelClass = FeedShellViewModel::class.java,
+            stateClass     = FeedShellState::class.java,
+            viewModelContext = ActivityViewModelContext(this, null),
+            key            = "feed_shell",
+        )
+        installAssembly(showBanner = false)
+        viewModel.onEach(FeedShellState::showBanner) { show ->
+            if (!assembly.matchesBannerState(show)) installAssembly(show) // guard 见下
+        }
+    }
 
-**ListPage 与 ItemBinder**：
+    private fun installAssembly(showBanner: Boolean) {
+        val notesFlow = viewModel.stateFlow
+            .map { it.noteList }.distinctUntilChanged()
+        val block: AssemblyScope.() -> Unit = {
+            provides(FeedShellViewModelKey, viewModel)
+            provides(BannerStateKey, showBanner)                       // replace guard 用
+            +FeedHeaderPage()                at R.id.feed_header_slot
+            if (showBanner) +FeedBannerPage() at R.id.feed_body_slot
+            +FeedListPage(notesFlow)          at R.id.feed_body_slot
+            +FeedFooterPage()                 at R.id.feed_footer_slot
+        }
+        if (::assembly.isInitialized) assembly.replace(block) else assembly = assemble(block)
+    }
+}
 
-```kotlin
-val NoteRepoKey  = pageContextKey<NoteRepository>("note.repo")
-val NoteClickKey = pageContextKey<(Note) -> Unit>("note.click")
+// 4. 子 Page / Binder：consume VM，事件直接调方法，状态用 onEach 订阅
+class FeedHeaderPage : ViewPage<HeaderBinding>(R.layout.page_feed_header, …) {
+    override fun onViewCreated(b: HeaderBinding) {
+        val vm = requireConsume(FeedShellViewModelKey)
+        b.btnRefresh.setOnClickListener { vm.refresh() }
+        b.btnBanner.setOnClickListener  { vm.toggleBanner() }
+    }
+}
 
 object NoteItemBinder : ItemBinder<Note> {
     override fun createView(parent: ViewGroup, ctx: PageContext): View = … // 仅 inflate
     override fun bind(view: View, item: Note, position: Int, ctx: PageContext) {
-        val onClick = ctx.requireConsume(NoteClickKey)  // 拿到的就是宿主给的那个 lambda
+        val vm = ctx.requireConsume(FeedShellViewModelKey)
         view.findViewById<TextView>(R.id.title).text = item.title
-        view.setOnClickListener { onClick(item) }
+        view.setOnClickListener { vm.likeOne(item.id) }
     }
     override fun areItemsTheSame(old: Note, new: Note) = old.id == new.id
-    // areContentsTheSame 默认 == 即可，data class 等价语义直接复用
 }
 
-class NotesListPage(notes: Flow<List<Note>>) : ListPage<Note>(notes, NoteItemBinder)
+class FeedListPage(notes: Flow<List<Note>>) : ListPage<Note>(notes, NoteItemBinder)
 ```
 
+为什么这样设计：
+
+- **`replace` 的触发条件必须来自 state，不是来自事件**。`viewModel.onEach(State::showBanner)` 在旋屏/进程死后重建会自动 replay 当前 state，自然把结构补齐；如果改成 `hostBus.on<ToggleBannerRequested>` 这种边沿信号，重建后就丢了。这也是为什么 Page 拿不到 Assembly 句柄——结构性变化必须经过宿主、经过 VM 状态。
+- **避免 `onEach → replace → onEach` 死循环**：`installAssembly` 在 assembly scope 里 `provides(BannerStateKey, showBanner)`；下一帧 `onEach` 触发时先 `assembly.matchesBannerState(show)` 比对一下旧值，相等则直接 return——这是 Pages 之外的纯宿主逻辑，业务 VM 里不沾这层细节。
+- **`ListPage` 的 `itemsFlow` 从 `viewModel.stateFlow` 派生**（`.map { it.noteList }.distinctUntilChanged()`），不直接喂 `repo.someFlow`。这样列表的"现在显示什么"和 VM 状态严格一致——做 Loading 占位、做错误态、做乐观更新都只改 VM，列表自动跟上。
+
+`replace` 的语义边界：
+
+- 按**声明逆序**逐页 `performDetach` → 移除视图 → 清空 `assemblyLocal` 条目；`hostLocal` / `hostBus` / ViewModel store **不动**——所以 Page 关心的"我所在的宿主"那一面跨 replace 是稳定的。Activity 级别的 Mavericks ViewModel 也不会被 replace 干掉，因为它存活在 `ViewModelStoreOwner`（Activity）里，不在 `assemblyLocal` 里。
+- 旧 Page 的 `LifecycleEventObserver` 在 `performDetach` 里**显式 remove**（v2 顺手修了一个潜在的观察者泄漏：见 `Page.hostObserver`）。
+- 新组合的 `provides` 必须在新 block 内重新声明——这是有意的"明文优先"，让"替换后还看得到旧 provides"这种隐含状态不可能存在。
+- Mavericks 的 `onEach` 用 `subscriptionLifecycleOwner`，对 Page 而言就是 Page 自己；`performDetach` 把 Page 推到 `ON_DESTROY`，订阅随之取消——所以"老 Page 还在监听"这种悬挂引用不会发生。
+- Page 内的 `PageViewModel` 不被驱逐；同一 Page 类型再次出现时会拿到上一次的 VM（key 仍是 `{pageId}::{VMClass}`）。短生命的 bottom-sheet 类场景未来会加 `Assembly.dispose()` 显式释放。
+
+**ListPage 与 ItemBinder 的协议要点**：
+
 - 行级别**没有 Page 实体**：1000 行不会有 1000 个 `Lifecycle / ViewModel / ScopedEventBus`；`ItemBinder` 是无状态对象。
-- 父 Page 的 `PageContext` 直接传给 `ItemBinder`，所以"行里要用仓库/点击桥"完全不需要走构造函数链。
+- 父 Page 的 `PageContext` 直接传给 `ItemBinder`，所以"行里要拿 Shell VM"完全不需要走构造函数链——用 `ctx.requireConsume(XxxShellViewModelKey)` 一行搞定。
 - `itemsFlow` 用 `collectLatest` 订阅，慢消费者不会堆帧；`onDestroyView` 会主动断开 adapter 引用，避免 `replace` 周期间残留。
+- 行内**只读 + 发命令**：不要在 `ItemBinder.bind` 里持有可变状态、不要在行里 `viewModel.onEach`。需要根据"行"维度反应状态，把那段状态做成 VM 里的 `Map<ItemId, X>` 切片，从 `itemsFlow` 派生出渲染数据。
 
 **当前刻意不支持的能力**（以及怎么绕开）：
 

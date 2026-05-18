@@ -94,25 +94,58 @@ Violating any of these fails the `checkDependencyRules` task **and** CI.
 
 ---
 
-## Rule 2: AssembleKit is the page-level framework
+## Rule 2: All business features ship as **assembly + Mavericks**
 
-All page-shaped UI (Activity / Fragment-replacement) MUST use
-[`:foundations:assemblekit`](foundations/assemblekit). Concretely:
+> **One-line mandate**: every new business page MUST use
+> [`:foundations:assemblekit`](foundations/assemblekit) for composition AND
+> [Airbnb Mavericks](https://github.com/airbnb/mavericks) for state. No
+> exceptions. Reviewers MUST reject PRs that violate this even if "the
+> feature works".
 
-- Hosts extend `PageHostActivity` (or implement `PageHost`)
-- Pages extend `ViewPage` today (`ComposablePage` once the Compose module
-  ships)
-- Per-page state lives in `PageViewModel<S : MavericksState>` — this is the
-  MVI contract; do NOT bypass it with raw `StateFlow` in Pages
-- Cross-Page comms inside one Assembly go through `ScopedEventBus` /
-  `ScopedCommandBus`; cross-layer data goes through `provides` / `consume`
-- Structural changes (`assembly.replace { }`) are **host-only** — a Page
-  cannot reach the Assembly handle
+The full rule set, anti-pattern checklist, and worked Feed example live in
+[`docs/mvi-rules.md`](docs/mvi-rules.md). The five non-negotiable items
+(repeated here so nobody pretends they didn't see them):
 
-Design rationale lives in
+1. **Hosts** extend `PageHostActivity` (or implement `PageHost`). Pages
+   extend `ViewPage` today (`ComposablePage` once the Compose module ships).
+2. **One Shell ViewModel per page.** A `MavericksViewModel<TState>` owned by
+   the host (`ActivityViewModelContext`), provided to the assembly via
+   `provides(XxxShellViewModelKey, vm)`. Sub-Pages and `ItemBinder`s call
+   `requireConsume(XxxShellViewModelKey)`. **Per-Page** local state may
+   additionally use `PageViewModel<S>` — never raw `StateFlow` / `LiveData`
+   / `var` fields in a Page.
+3. **Rendering uses Mavericks selectors only.** `viewModel.onEach(prop)` /
+   `onAsync(prop)`. Do NOT `viewModelScope.launch { state.collect { … } }`
+   manually; do NOT call `withState { … }` to drive UI.
+4. **Side effects = method calls on the VM**, not events. `vm.refresh()`,
+   `vm.like(id)`. `ScopedEventBus` / `ScopedCommandBus` are still allowed
+   for **transient, fire-and-forget** signals (toasts, navigation requests)
+   that genuinely have no state representation — but if you find yourself
+   asking "should this be a bus event or a state field?" the answer is
+   **state field**.
+5. **Structural recomposition is host-driven and state-driven.**
+   `assembly.replace { }` may only be called by the host, and the trigger
+   must be `viewModel.onEach(State::structuralFlag)` — not a bus event,
+   not a click listener. Pages cannot see the `Assembly` handle.
+
+Anti-patterns that fail CR automatically (see
+[`docs/mvi-rules.md` § anti-patterns](docs/mvi-rules.md#anti-patterns) for
+the exhaustive list):
+
+- `private val _foo = MutableStateFlow(...)` inside a Page or Activity that
+  is also using AssembleKit
+- `repo.someHotFlow.collect { adapter.submitList(...) }` in a Page
+- `private var bannerVisible = false` on a host + `assembly.replace` driven
+  by a click listener (use `MavericksState.showBanner` + `onEach`)
+- `provides(SomeRepositoryKey, repo)` in `assemble {}` (repositories belong
+  inside the Shell VM, not in PageContext)
+- `hostBus.on<SomeRequest>` used as a synchronous command channel (it's
+  fire-and-forget by design; use a VM method)
+
+Design rationale and the Feed walkthrough live in
 [`docs/architecture.md` § AssembleKit](docs/architecture.md#页面装配框架assemblekit)
-and
-[§ AssembleKit v2](docs/architecture.md#assemblekit-v2列表上下文多槽位host-驱动-replace).
+and [§ AssembleKit v2](docs/architecture.md#assemblekit-v2列表上下文多槽位host-驱动-replace).
+The full rule set: [`docs/mvi-rules.md`](docs/mvi-rules.md).
 
 ---
 
