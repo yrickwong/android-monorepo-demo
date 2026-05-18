@@ -124,6 +124,9 @@ dependencies {
 | `:foundations:assemblekit → :foundations:common` | foundation 内部互相依赖，允许 |
 | `:foundations:assemblekit → :third-party:logger`  | foundation → third-party，允许 |
 | `:foundations:assemblekit → androidx.recyclerview` | 第三方库，外部依赖（不在分层校验范围） |
+| `:foundations:assemblekit-compose → :foundations:assemblekit` | foundation 内部依赖：Compose 桥模块以 `api` 暴露 base 模块的 `Page` / `PageContext` 给业务侧 |
+| `:foundations:assemblekit-compose → androidx.compose.*` / `com.airbnb.android:mavericks-compose` | 第三方库，外部依赖（不在分层校验范围）。Compose BOM 与编译器扩展由 [`demo.android.foundation.compose`](../build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/AndroidFoundationComposeConventionPlugin.kt) 集中管理 |
+| `:features:* → :foundations:assemblekit-compose` | feature → foundation，规则允许；按需引入——只在该 feature 里写了 `ComposablePage` 时才加这条依赖，未用 Compose 的 feature 不要拉进来 |
 | `:app → :foundations:assemblekit` | app 是组合根，可以依赖任何模块 |
 | `:app → :features:feed` | app 是唯一允许依赖 `:features:*` 的模块 |
 

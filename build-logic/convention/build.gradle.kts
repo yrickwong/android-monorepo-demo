@@ -36,6 +36,10 @@ gradlePlugin {
             id = "demo.android.foundation"
             implementationClass = "com.demo.monorepo.buildlogic.AndroidFoundationConventionPlugin"
         }
+        register("androidFoundationCompose") {
+            id = "demo.android.foundation.compose"
+            implementationClass = "com.demo.monorepo.buildlogic.AndroidFoundationComposeConventionPlugin"
+        }
         register("kotlinLibrary") {
             id = "demo.kotlin.library"
             implementationClass = "com.demo.monorepo.buildlogic.KotlinLibraryConventionPlugin"

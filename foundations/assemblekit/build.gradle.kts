@@ -21,6 +21,11 @@ dependencies {
     // 所以以 api 暴露给 :features:* / :bizlibs:*。
     api(libs.androidx.recyclerview)
 
+    // AsyncViewPage 用 AsyncLayoutInflater 在后台线程 inflate 复杂布局，
+    // 主线程只返回一个占位 FrameLayout —— 这里用 implementation 即可，
+    // 子类不直接接触 androidx.asynclayoutinflater 类型。
+    implementation(libs.androidx.asynclayoutinflater)
+
     implementation(project(":foundations:common"))
     implementation(project(":third-party:logger"))
 }
