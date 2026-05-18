@@ -1,0 +1,26 @@
+docs/mvi-rules.md
+  s_2a2d774398c326::t_584b8e9363e075 168-223
+  s_2a2d774398c326::t_cecfd437e3c878 244-303
+  s_2a2d774398c326::t_7e0995b6be5de6 323-326
+  s_2a2d774398c326::t_8004319f2d6292 364-367
+docs/architecture.md
+  s_2a2d774398c326::t_5b3309073c3423 367-372
+AGENTS.md
+  s_2a2d774398c326::t_1da76e359c84c4 106,130-139,154-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "888b581282739021c02fd8b64f645479ca4550c6",
+  "prompts": {},
+  "sessions": {
+    "s_2a2d774398c326": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "3a89c443-4847-4b4f-9c61-62d44f0f726b",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
