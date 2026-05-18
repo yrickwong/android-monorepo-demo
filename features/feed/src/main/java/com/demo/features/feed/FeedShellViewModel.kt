@@ -61,6 +61,30 @@ internal class FeedShellViewModel(
     fun toggleBanner() = setState { copy(showBanner = !showBanner) }
 
     /**
+     * Share intent for a single note. Called by `NoteActionBar`, a
+     * custom view 3 layers below the note row, which reaches this VM
+     * via `view.requirePageContext().requireConsume(FeedShellViewModelKey)`
+     * — no constructor injection, no DI, no event bus.
+     *
+     * Mutates only the cosmetic [FeedShellState.lastShared] field so
+     * the UI can observe that the click really did make it to the VM.
+     * A real implementation would dispatch an `Intent.ACTION_SEND` via
+     * a router foundation; we keep that out of the demo to avoid
+     * pulling in a navigation dependency.
+     */
+    fun share(noteId: String) = setState { copy(lastShared = noteId) }
+
+    /**
+     * Bump a tag. Invoked from `RelatedTagsCarousel`'s inner RecyclerView
+     * ViewHolder — that's a 4-layer-deep view (chip → carousel RV →
+     * carousel container → note row → ListPage RV → host root) and the
+     * point of the demo is that it still reaches this method with one
+     * line: `view.requirePageContext().requireConsume(FeedShellViewModelKey)
+     * .bumpTag(tag)`. No callback drilling, no parent-binder relays.
+     */
+    fun bumpTag(tag: String) = setState { copy(lastTag = tag) }
+
+    /**
      * Mavericks' canonical recipe for injecting non-state constructor
      * params. The framework calls this once per ViewModelStore and
      * caches the result, so we get a fresh [FeedRepository] per host

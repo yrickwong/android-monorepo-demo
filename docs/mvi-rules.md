@@ -165,6 +165,62 @@ not "caught in review", not "trapped in tests", *impossible*.
   value, `installAssembly` rebuilds the right composition. You write zero
   extra code for this.
 
+### Rule M6 — Deep custom views reach the Shell VM via the view tree, never via constructor / DI
+
+The temptation: a `NoteActionBar` lives 3 layers under a row, and an
+inner-RecyclerView `TagChipViewHolder` lives 5 layers down. The naive
+fix is to drill the `FeedShellViewModel` through every intermediate
+constructor / setter so the deep view can call it. That is **banned**.
+
+- A reusable custom view must accept **data only** through its public
+  surface (constructor / `bind()` / setters). Anything behavioural —
+  the Shell VM, the analytics tracker, theme tokens — comes from the
+  **view tree** via
+  [`view.requirePageContext()`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewTreePageContext.kt)
+  / [`view.findPageContext()`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewTreePageContext.kt).
+- The framework stamps the `PageContext` for you. You **never** call
+  `setPageContext` by hand in product code:
+  - [`Page.performAttach`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt)
+    stamps every Page's root view at attach time and clears it on
+    detach.
+  - [`ListPage.BinderAdapter.onCreateViewHolder`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt)
+    stamps every row's `itemView`, so the parent Page's context is
+    reachable from every descendant of every row (including
+    nested-RecyclerView ViewHolders).
+- Pick the right severity for the lookup:
+  - `requirePageContext()` — mandatory production wiring; throws with
+    a helpful pointer if the view was inflated outside any Page.
+    Use this in widgets that are *only* meant to live inside an
+    AssembleKit screen.
+  - `findPageContext()` — nullable; use it in widgets whose layout
+    might also be rendered in previews / snapshot tests / unit
+    fixtures, so the bare inflate degrades gracefully.
+- The chain is `pageLocal → assemblyLocal → hostLocal`, so a Shell VM
+  provided once with `provides(XxxShellViewModelKey, vm)` at assembly
+  scope is automatically reachable from *every* descendant of *every*
+  Page in that assembly. There is no per-row plumbing.
+
+Why this is preferred over taking the VM in the constructor:
+- XML inflation cannot pass non-`Context/AttributeSet` arguments. The
+  "drill the VM in" workaround forces a `setViewModel(vm)` setter,
+  which forces the binder to call it on every widget, which forces
+  the widget to forward it to every inner sub-widget. That is exactly
+  the parameter-drill cascade we are eliminating.
+- A widget that hard-codes `FeedShellViewModel` in its API can only
+  ever live in Feed. A widget that resolves the VM via a typed
+  PageContextKey is portable to any AssembleKit screen that provides
+  the same key — turning "reusable" from an aspiration into a
+  default.
+
+The canonical example is the trio
+[`NoteActionBar`](../features/feed/src/main/java/com/demo/features/feed/widget/NoteActionBar.kt),
+[`RelatedTagsCarousel`](../features/feed/src/main/java/com/demo/features/feed/widget/RelatedTagsCarousel.kt),
+and [`FeedFooterPage`](../features/feed/src/main/java/com/demo/features/feed/page/FeedFooterPage.kt):
+clicks 3 / 5 layers deep land on `FeedShellState.lastShared` /
+`lastTag`, and the footer (mounted in a *different* slot) renders
+them — proving the deep lookup resolves the *same* shell VM, not
+some accidental row-scoped instance.
+
 ---
 
 ## <a name="anti-patterns"></a>Anti-patterns (CR auto-reject)
@@ -185,6 +241,66 @@ the tech lead.
 | A8 | A non-empty `MavericksView.invalidate()` body in a host that also uses `onEach` | Two render paths; one will be slower/buggier; people will argue over which is canonical | Keep `invalidate() = Unit`; use `onEach`/`onAsync` exclusively |
 | A9 | A Page calling `assembly.replace` (via reflection / by stashing the handle) | Breaks "host decides structure"; defeats restoration; makes ordering of detach/attach non-deterministic | Send a method call to the Shell VM; let the host's `onEach` re-trigger `installAssembly` |
 | A10 | Mavericks VM exposed as a global singleton or DI-scoped object instead of per-host | Wrong lifetime; cross-page leaks; impossible to reason about restoration | `ActivityViewModelContext(this, null)` + `provides(...)` in assembly |
+| A11 | `class NoteActionBar(ctx, attrs, val vm: FeedShellViewModel)` — Shell VM passed in via constructor / setter to a reusable widget | Hard-couples the widget to one feature; breaks XML inflation; forces parameter-drilling through every intermediate adapter / binder | `view.requirePageContext().requireConsume(FeedShellViewModelKey)` inside the click handler — see Rule M6 |
+| A12 | `KoinJavaComponent.get<FeedShellViewModel>()` (or `Hilt`, or any DI lookup) from inside a custom view to reach the Shell VM | DI is global / app-scoped; you get *some* live instance, not "the VM of *this* host". Also a silent escape hatch around MVI — the view can now reach into a repo and bypass the VM. | `view.requirePageContext().requireConsume(XxxShellViewModelKey)` — page-scoped, type-checked, and the only path is through the Shell VM. See "Why not Koin/Hilt" below. |
+
+---
+
+## <a name="why-not-koin"></a>Why not Koin / Hilt / Dagger for this problem
+
+A frequent question: "we already have a DI container in lots of
+projects — why invent `findPageContext` instead of letting widgets
+ask the container for the Shell VM?" Three reasons, in order of how
+hard they bite.
+
+### 1. Scope mismatch (the structural reason)
+
+A DI container's natural unit is the **app** (singleton scope) or at
+best the **Activity** (Activity scope, if you opt in to per-Activity
+subcomponents). `PageContext` is a **page** — bounded by an
+`assemble { … }` block which can come and go several times during the
+Activity's life via `assembly.replace { }`.
+
+If the chip widget asks Koin for `FeedShellViewModel`, Koin's only
+honest answer is *some* live instance. With two simultaneously open
+Feed surfaces (e.g. a master/detail tablet layout) you have two
+`FeedShellViewModel`s, but Koin will hand the chip whichever one was
+registered last — silently, with no compile error. View-tree lookup
+hands the chip *the VM whose Page actually owns the row it lives in*,
+because resolution walks the actual parent chain.
+
+### 2. MVI escape hatch (the cultural reason)
+
+Once `Koin.get<FeedRepository>()` works in any view, it works
+**everywhere**. The "view reaches into the repo, computes its own
+state, mutates the world" anti-pattern (A2, A4) becomes mechanically
+easy. The MVI invariant — *all mutation flows through the Shell VM*
+— stops being structurally enforced; it becomes "we trust everyone
+to do the right thing", which is to say not enforced at all.
+
+`view.requirePageContext().requireConsume(XxxShellViewModelKey)`
+*forces* the view to talk to the Shell VM. The repository is private
+to the VM's constructor and there is no key for it, by design.
+
+### 3. Lifetime and teardown (the operational reason)
+
+When `assembly.replace { }` rebuilds the composition, the framework
+clears the `PageContext` tag on every detached Page root in
+`performDetach`. Any view still cached externally (a row pool, a
+screenshot util) sees `findPageContext() == null` and degrades
+politely. A DI container has no equivalent — it keeps handing out
+the same `FeedShellViewModel` reference long after the surface that
+produced it has gone, which is how "ghost" subscriptions and
+"updates render into a torn-down view" bugs are born.
+
+### Where DI still earns its keep
+
+Nothing above argues against DI in general — only against using it
+as a *replacement* for the page-scoped lookup. Genuinely global
+services (an HTTP client factory, a JSON parser, a feature-flag
+gate) are exactly what a DI container is good at; route those
+through the VM's constructor (or via the `MavericksViewModelFactory`)
+and keep the view tree out of it.
 
 ---
 
@@ -204,7 +320,10 @@ features/feed/src/main/java/com/demo/features/feed/
 ├── page/FeedFooterPage.kt    ← consume VM; viewModel.onEach(::notes) for Loading/Fail/Success
 ├── page/FeedListPage.kt      ← ListPage<Note>(notes = derived flow)
 ├── page/FeedBannerPage.kt    ← static; mounted only when showBanner = true
-└── binder/NoteItemBinder.kt  ← row → ctx.requireConsume(FeedShellViewModelKey).likeOne(id)
+├── binder/NoteItemBinder.kt  ← row → ctx.requireConsume(FeedShellViewModelKey).likeOne(id)
+└── widget/
+    ├── NoteActionBar.kt          ← reusable; depth-3 view, requirePageContext() at click time
+    └── RelatedTagsCarousel.kt    ← reusable; inner RV chips at depth 5, findPageContext()
 ```
 
 A 60-second walkthrough lives in
@@ -242,6 +361,10 @@ That is the shape every new business feature should arrive in.
 - [ ] If you use `assembly.replace { }`: the trigger is a `viewModel.onEach`
       on a state field, the call is in the host, and there is a marker
       local + matches-helper to break the replay loop.
+- [ ] Any reusable custom view that needs the Shell VM gets it via
+      `view.requirePageContext().requireConsume(XxxShellViewModelKey)`
+      — **never** via constructor / setter parameter, **never** via a
+      DI container. The view's public surface is data only.
 
 If all boxes are ticked, the PR conforms. If any is unchecked, justify in
 the PR description.

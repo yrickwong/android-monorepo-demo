@@ -221,6 +221,13 @@ abstract class Page(
         val created = materialize(inflater, parent)
         view = created
 
+        // Stamp the View tree so any descendant (custom view, nested
+        // RecyclerView's inner ViewHolder, etc.) can resolve the
+        // current PageContext via `view.findPageContext()` without
+        // taking it as a constructor / setter parameter. The contract
+        // mirrors AndroidX' ViewTreeLifecycleOwner pattern.
+        created.setPageContext(ctx)
+
         // Mirror host's current lifecycle state — if the host is already
         // STARTED/RESUMED when the assembly is built, we catch up
         // synchronously so subscribers see consistent events.
@@ -235,6 +242,11 @@ abstract class Page(
         } catch (t: Throwable) {
             Logger.w(LOG_TAG, "onDestroy threw for $pageId: ${t.message}")
         }
+        // Clear the ViewTree stamp before dropping the view reference,
+        // so a View someone caches outside the framework (a row pool,
+        // a screenshot util) can't keep the PageContext / host alive
+        // long after detach.
+        view?.setPageContext(null)
         view = null
 
         // Unsubscribe from host's lifecycle so we don't pile up observers

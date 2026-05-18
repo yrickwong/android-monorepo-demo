@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.demo.foundations.assemblekit.PageContext
 import com.demo.foundations.assemblekit.ViewPage
+import com.demo.foundations.assemblekit.setPageContext
 import com.demo.thirdparty.logger.Logger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
@@ -117,8 +118,16 @@ open class ListPage<T>(
         private val parentCtx: PageContext,
     ) : ListAdapter<T, BinderViewHolder>(DiffCallback(binder)) {
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BinderViewHolder =
-            BinderViewHolder(binder.createView(parent, parentCtx))
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BinderViewHolder {
+            val rowView = binder.createView(parent, parentCtx)
+            // Stamp the row root with the parent Page's PageContext.
+            // This is the magic that lets a nested custom view 3 layers
+            // deep inside the row — or an inner RecyclerView's
+            // ViewHolder — call `view.findPageContext()` and reach the
+            // same Shell VM the binder sees, without parameter drilling.
+            rowView.setPageContext(parentCtx)
+            return BinderViewHolder(rowView)
+        }
 
         override fun onBindViewHolder(holder: BinderViewHolder, position: Int) {
             @Suppress("UNCHECKED_CAST")

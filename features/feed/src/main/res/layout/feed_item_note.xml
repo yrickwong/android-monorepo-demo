@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Single row layout for the Feed list. ListPage's `BinderAdapter`
+  stamps a PageContext on the root of this view at row-create time,
+  so every descendant (the action bar, the tags carousel, the
+  carousel's inner ViewHolders) can resolve the Shell ViewModel via
+  `view.findPageContext()` without taking it through constructor
+  parameters.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -26,4 +34,29 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:textSize="12sp" />
+
+    <!--
+      Reusable widget. NoteItemBinder hands it ONLY a note id via bind();
+      every behaviour (VM lookup, analytics, click handling) is wired by
+      the widget itself using view-tree resolution. Swap this widget into
+      any other AssembleKit page that provides FeedShellViewModelKey and
+      it will work unchanged.
+    -->
+    <com.demo.features.feed.widget.NoteActionBar
+        android:id="@+id/note_actions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp" />
+
+    <!--
+      Carousel hosts an internal RecyclerView; the chips inside live 4
+      layers below the PageContext stamp and demonstrate that depth
+      doesn't change the API: `findPageContext()` is O(depth) and 5
+      hops is still under a microsecond.
+    -->
+    <com.demo.features.feed.widget.RelatedTagsCarousel
+        android:id="@+id/note_tags"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" />
 </LinearLayout>

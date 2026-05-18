@@ -1,10 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  Footer Page layout. Two text fields:
+   - footer_text: list-status summary driven by `notes: Async<List<Note>>`.
+   - footer_extras: "last shared" / "last tag" driven by clicks that
+     happened deep inside row widgets, proving that the deep view-tree
+     lookups did mutate shared Shell state.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/footer_text"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center"
+    android:orientation="vertical"
     android:paddingTop="8dp"
-    android:textSize="12sp"
-    tools:ignore="MissingDefaultResource" />
+    tools:ignore="MissingDefaultResource">
+
+    <TextView
+        android:id="@+id/footer_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/footer_extras"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingTop="2dp"
+        android:textSize="11sp"
+        android:alpha="0.7" />
+</LinearLayout>
