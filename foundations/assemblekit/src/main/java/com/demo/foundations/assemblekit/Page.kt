@@ -12,6 +12,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import com.airbnb.mvrx.MavericksView
+import com.demo.foundations.assemblekit.local.PageContextKey
 import com.demo.thirdparty.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -164,6 +165,35 @@ abstract class Page(
 
     /** Publish to the host (Activity/Fragment-wide). */
     protected fun emitToHost(event: Any): Boolean = context.hostBus.emit(event)
+
+    // ------------------------------------------------------------------
+    // Scoped locals (provides / consume)
+    // ------------------------------------------------------------------
+
+    /**
+     * Resolve a value provided anywhere in the page→assembly→host chain.
+     * Returns `null` if no scope provides this key. Equivalent to
+     * `context.consume(key)`; the inline-friendly shortcut lives here
+     * so subclasses don't need to reach into `context`.
+     */
+    protected fun <T> consume(key: PageContextKey<T>): T? = context.consume(key)
+
+    /** Like [consume] but throws if the key was never provided. */
+    protected fun <T> requireConsume(key: PageContextKey<T>): T = context.requireConsume(key)
+
+    /**
+     * Provide a value visible **only to this Page** (and to any nested
+     * consumers it explicitly hands its [PageContext] to, e.g. items in
+     * a `ListPage`). Shadowing the parent for one page is a common need
+     * — e.g. a "preview" Page wanting to use a fake repository while
+     * sibling Pages still see the real one.
+     *
+     * For framework-wide or screen-wide provides, do it from the
+     * `assemble {}` DSL or from the host's `hostLocal[...] = …` setter.
+     */
+    protected fun <T> providesPage(key: PageContextKey<T>, value: T) {
+        context.pageLocal[key] = value
+    }
 
     // ------------------------------------------------------------------
     // Framework-only entry points (called by Assembly)

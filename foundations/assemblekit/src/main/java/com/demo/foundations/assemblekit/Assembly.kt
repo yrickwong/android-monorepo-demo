@@ -9,6 +9,7 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.lifecycleScope
 import com.demo.foundations.assemblekit.bus.ScopedCommandBus
 import com.demo.foundations.assemblekit.bus.ScopedEventBus
+import com.demo.foundations.assemblekit.local.ScopedContainer
 import com.demo.thirdparty.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 
@@ -60,6 +61,17 @@ class Assembly internal constructor(
 
     val bus: ScopedEventBus = ScopedEventBus(tag = "AssemblyBus($assemblyId)")
     val commands: ScopedCommandBus = ScopedCommandBus(tag = "AssemblyCmd($assemblyId)")
+
+    /**
+     * Assembly-level "locals" container. Chained to [PageHost.hostLocal]
+     * as its parent so anything provided on the host is visible here
+     * (and to every page underneath) via [ScopedContainer.resolve].
+     *
+     * Populated by the `provides(key, value)` calls inside the
+     * `assemble {}` DSL block; pages can read via `consume(key)`.
+     */
+    val assemblyLocal: ScopedContainer =
+        ScopedContainer.child(parent = host.hostLocal, debugName = "asmLocal($assemblyId)")
 
     // ------------------------------------------------------------------
     // Pages
@@ -115,6 +127,11 @@ class Assembly internal constructor(
         val pageBus = ScopedEventBus(tag = "PageBus($pageId)")
         val pageCommands = ScopedCommandBus(tag = "PageCmd($pageId)")
 
+        // Each Page gets its own local container, chained to the assembly's
+        // (which is itself chained to the host's). Lookups walk this chain
+        // automatically via ScopedContainer.resolve.
+        val pageLocal = ScopedContainer.child(parent = assemblyLocal, debugName = "pageLocal($pageId)")
+
         val ctx = PageContext(
             host = host,
             assembly = this,
@@ -130,6 +147,9 @@ class Assembly internal constructor(
             pageCommands = pageCommands,
             assemblyCommands = commands,
             hostCommands = host.hostCommands,
+            pageLocal = pageLocal,
+            assemblyLocal = assemblyLocal,
+            hostLocal = host.hostLocal,
             hostViewModelStoreOwner = host,
         )
 

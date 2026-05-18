@@ -8,6 +8,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.savedstate.SavedStateRegistryOwner
 import com.demo.foundations.assemblekit.bus.ScopedCommandBus
 import com.demo.foundations.assemblekit.bus.ScopedEventBus
+import com.demo.foundations.assemblekit.local.ScopedContainer
 
 /**
  * The container of an [Assembly] — typically an `Activity`, a `Fragment`,
@@ -37,6 +38,27 @@ interface PageHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwne
 
     /** Host-wide request/response bus. Lives as long as the host. */
     val hostCommands: ScopedCommandBus
+
+    /**
+     * Host-wide "locals" container. Anything you put here is visible to
+     * every Page hosted underneath, via [PageContext.consume] / the
+     * `Page.consume(key)` helper.
+     *
+     * Typical use: stash a long-lived dependency the host already owns
+     * (an `AppEnv`, a logged-in session, a router) so child Pages don't
+     * have to take it through constructor parameters.
+     *
+     * ```kotlin
+     * class FeedActivity : PageHostActivity() {
+     *     override fun onCreate(s: Bundle?) {
+     *         super.onCreate(s)
+     *         hostLocal[FeedRepositoryKey] = FeedRepository.real()
+     *         assemble(host = this) { +HeaderPage(); +FeedListPage() }
+     *     }
+     * }
+     * ```
+     */
+    val hostLocal: ScopedContainer
 }
 
 /**
@@ -73,6 +95,10 @@ abstract class PageHostActivity : AppCompatActivity(), PageHost {
         ScopedCommandBus(tag = "HostCmd($hostId)")
     }
 
+    override val hostLocal: ScopedContainer by lazy {
+        ScopedContainer.root(debugName = "hostLocal($hostId)")
+    }
+
     // Activity already implements ViewModelStoreOwner, LifecycleOwner and
     // SavedStateRegistryOwner; nothing else to wire here.
 }
@@ -95,6 +121,10 @@ abstract class PageHostFragment : Fragment, PageHost {
 
     override val hostCommands: ScopedCommandBus by lazy {
         ScopedCommandBus(tag = "HostCmd($hostId)")
+    }
+
+    override val hostLocal: ScopedContainer by lazy {
+        ScopedContainer.root(debugName = "hostLocal($hostId)")
     }
 
     /** Convenience accessor matching Activity's `lifecycleScope` syntax. */

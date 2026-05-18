@@ -2,6 +2,7 @@ package com.demo.foundations.assemblekit
 
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import com.demo.foundations.assemblekit.local.PageContextKey
 
 /**
  * DSL marker so blocks of `assemble {}` cannot accidentally call each
@@ -48,6 +49,28 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
      */
     inline fun whenever(cond: Boolean, block: AssemblyBuilder.() -> Unit) {
         if (cond) block()
+    }
+
+    /**
+     * Provide a value at **assembly scope**. Visible to every Page in
+     * this Assembly via `consume(key)`, and to anything those Pages
+     * hand their [PageContext] to (e.g. items inside a `ListPage`).
+     *
+     * Call this *before* the Pages that depend on it — values are read
+     * eagerly during attach.
+     *
+     * ```kotlin
+     * val FeedRepositoryKey = pageContextKey<FeedRepository>("feed.repo")
+     *
+     * assemble(host = this) {
+     *     provides(FeedRepositoryKey, FeedRepository.real())
+     *     +FeedHeaderPage()
+     *     +FeedListPage()
+     * }
+     * ```
+     */
+    fun <T> provides(key: PageContextKey<T>, value: T) {
+        assembly.assemblyLocal[key] = value
     }
 }
 
