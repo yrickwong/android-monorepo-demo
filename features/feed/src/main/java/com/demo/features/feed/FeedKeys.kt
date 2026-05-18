@@ -1,27 +1,28 @@
 package com.demo.features.feed
 
-import com.demo.features.feed.data.FeedRepository
-import com.demo.features.feed.model.Note
 import com.demo.foundations.assemblekit.local.pageContextKey
 
 /**
- * Top-level singletons that act as the context keys for everything the
- * Feed Assembly exposes to its children.
+ * Single context key the Feed module exposes: the shell ViewModel.
  *
- * Keeping them at module-package scope (`internal val`) means:
- *  - they're shared by every Page / Binder inside `:features:feed`
- *    without leaking through the module boundary;
- *  - tests can re-import them to provide a fake repo in a mock host.
+ * Why this is the *only* key now (down from "repository + click
+ * handler + …"):
+ *  - The ViewModel is the single source of truth. Anything a Page used
+ *    to need from the repo (current list, refresh trigger, like
+ *    callback) is now a method on the VM — so one consume hop is
+ *    enough.
+ *  - Pages have no business consuming the repository directly. That
+ *    would put them back on the "two sources of truth" treadmill —
+ *    raw `collect(repo.notes)` instead of `viewModel.onAsync(...)`.
+ *    AGENTS.md Rule 2 explicitly forbids this; not exposing the repo
+ *    key turns the rule into a structural impossibility.
+ *  - Handlers like "like this note" are now `viewModel.likeOne(id)` at
+ *    the call site, so we don't need a separate `NoteClickKey`
+ *    function indirection either.
  *
- * Identity matters: each `PageContextKey<T>` is a distinct instance, so
- * two unrelated modules accidentally picking the same `name` cannot
- * cross-pollinate each other's locals.
+ * Identity matters: this is an `internal val` singleton so two
+ * unrelated modules can't accidentally cross-pollinate locals by
+ * choosing the same name.
  */
-internal val FeedRepositoryKey = pageContextKey<FeedRepository>("feed.repository")
-
-/**
- * Click handler exposed to rows. Demonstrates "provide a behaviour, not
- * just data": the binder calls back into something the Assembly owns,
- * without needing to know what concrete object lives behind it.
- */
-internal val NoteClickKey = pageContextKey<(Note) -> Unit>("feed.noteClick")
+internal val FeedShellViewModelKey =
+    pageContextKey<FeedShellViewModel>("feed.shellViewModel")
