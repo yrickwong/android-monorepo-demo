@@ -1,0 +1,43 @@
+tools/docs-sync/install-hooks.sh
+  s_1b7094e473c6c4::t_246302c4e18760 1-30
+docs/doc-sync-rules.md
+  s_c0d9120ebd643f::t_8bbb78a5c69ad0 1-151
+docs/architecture.md
+  s_c0d9120ebd643f::t_8c2b48a3651305 302-316,321,349-353,357-359
+docs/module-rules.md
+  s_c0d9120ebd643f::t_44b11591ee5059 4-5
+AGENTS.md
+  s_c0d9120ebd643f::t_ddab0906365f36 1-155
+tools/docs-sync/check_docs_sync.py
+  s_1b7094e473c6c4::t_be12957236d1cf 1-366
+.github/workflows/ci.yml
+  s_c0d9120ebd643f::t_ee4b475b09d806 18,29-33,37-49
+README.md
+  s_c0d9120ebd643f::t_c419d44ae3c3be 10,20-23,169-189,193-196,198,200,202-203,205
+tools/docs-sync/docs-sync-rules.json
+  s_1b7094e473c6c4::t_b4fc62e63a28cf 1-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "ceda6496f4b13c4e7928063dd96e858692e0b4df",
+  "prompts": {},
+  "sessions": {
+    "s_1b7094e473c6c4": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "02b1ab37-d5bb-4f6a-acd1-22b17ed883db",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    },
+    "s_c0d9120ebd643f": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "86cc5d0c-fac6-4270-8eaf-be4bcd20524e",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
