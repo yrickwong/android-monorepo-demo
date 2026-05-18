@@ -1,0 +1,19 @@
+foundations/assemblekit/README.md
+  s_3af132c5c1a1d8::t_07bf4d9fbc2678 1-507
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "2849afae944b05446bc8bd1e9c713e0274b7d9cb",
+  "prompts": {},
+  "sessions": {
+    "s_3af132c5c1a1d8": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "1feddf9f-80bf-48d8-b854-35b25ad762dd",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
