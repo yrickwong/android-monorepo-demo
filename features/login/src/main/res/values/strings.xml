@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="login_title">Monorepo Demo · Login</string>
+    <string name="login_subtitle">Header / Body / Bottom 由 assemble{} 组装</string>
     <string name="login_username">Username</string>
     <string name="login_password">Password</string>
     <string name="login_button">Login</string>
