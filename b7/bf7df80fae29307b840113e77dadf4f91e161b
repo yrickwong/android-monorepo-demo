@@ -1,0 +1,21 @@
+app/src/main/java/com/demo/monorepo/app/DemoApp.kt
+  s_bcf32155885fc6::t_56404b798bc7ba 4,43-45
+app/build.gradle.kts
+  s_bcf32155885fc6::t_5fc00081199d0f 32-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "b7bf7df80fae29307b840113e77dadf4f91e161b",
+  "prompts": {},
+  "sessions": {
+    "s_bcf32155885fc6": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "75761c49-bd33-46fe-a4f2-87e7745d1fd0",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
