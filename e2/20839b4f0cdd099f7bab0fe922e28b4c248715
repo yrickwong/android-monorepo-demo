@@ -1,0 +1,28 @@
+features/login/src/main/AndroidManifest.xml
+  s_d4ae9a8844c429::t_ea1fb96d3cb02d 2
+features/profile/src/main/AndroidManifest.xml
+  s_d4ae9a8844c429::t_de305b6d706315 2
+features/home/src/main/AndroidManifest.xml
+  s_d4ae9a8844c429::t_4842512509d86a 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e220839b4f0cdd099f7bab0fe922e28b4c248715",
+  "prompts": {},
+  "humans": {
+    "h_e1e7f0e869c039": {
+      "author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  },
+  "sessions": {
+    "s_d4ae9a8844c429": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "bdb553f9-964a-4721-be81-e35882bf2265",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
