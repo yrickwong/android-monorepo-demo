@@ -299,10 +299,26 @@ class NotesListPage(notes: Flow<List<Note>>) : ListPage<Note>(notes, NoteItemBin
 
 `tools/affected-modules/affected_modules.py --base main` 通过 `git diff` 找出变更文件、映射到模块、再借助反向依赖图找出所有受影响模块，输出 `changedModules` / `affectedModules` / `suggestedGradleTasks`。CI 拿到这份 JSON 后只需要对 `affectedModules` 执行编译/单测即可，无需全量构建。
 
+### 5. 文档同步契约（docs-sync）
+
+工程治理的最后一公里是**避免代码与文档脱节**。规则与执行：
+
+- **入口**：[`AGENTS.md` § Rule 0](../AGENTS.md#rule-0-docs-sync-contract-mandatory) 给 AI agent + 人类的工作规则
+- **声明式映射**：[`tools/docs-sync/docs-sync-rules.json`](../tools/docs-sync/docs-sync-rules.json) 8 条规则，每条声明"触发路径 → 必须同步的 md"
+- **人类详述版**：[`docs/doc-sync-rules.md`](doc-sync-rules.md) 每条规则的理由 / 失败例 / 豁免方式
+- **校验器**：[`tools/docs-sync/check_docs_sync.py`](../tools/docs-sync/check_docs_sync.py) 与 `affected_modules.py` 同款风格（pure stdlib + git diff + JSON 输出），支持 `--strict`（CI）和默认 warn-only（本地）
+- **本地钩子**：`bash tools/docs-sync/install-hooks.sh` 装一个**只 warn 不阻断**的 post-commit hook
+- **逃生舱**：commit message 中 `[docs-skip]` 或 `[docs-skip:R3-new-module]`，但必须在 PR 描述里写清理由
+
+逻辑非常朴素：变更集 = `git diff --name-only base...HEAD ∪ 当前工作区`；对每条规则，若 `triggers` 命中而 `requires_*` 没人改，就报违规。`diff_must_contain` 字段用来做"二阶过滤"——比如 `settings.gradle.kts` 只有真改了 `include(...)` 才算"新增模块"，避免误报。
+
+> 跟 `checkDependencyRules` 一样，这条规则也是**机械检查**：写规则的人付一次成本，所有后来者自动受益；新规则的添加流程见 [`docs/doc-sync-rules.md` § 规则本身怎么演化](doc-sync-rules.md#规则本身怎么演化)。
+
 ## 目录结构
 
 ```
 monorepo-demo/
+├── AGENTS.md                   # Agent / 人类工作规则（R0 docs-sync 契约）
 ├── app/                        # 应用壳
 ├── features/                   # 业务 feature
 │   ├── login/                  # 经典 assemble { } 三段式（v1 标准案例）
@@ -330,10 +346,15 @@ monorepo-demo/
 ├── build-logic/                # Convention plugins（独立 included build）
 │   └── convention/
 ├── tools/
-│   └── affected-modules/affected_modules.py
+│   ├── affected-modules/affected_modules.py   # 增量构建影响范围分析
+│   └── docs-sync/                              # 代码 → 文档 同步校验（R0）
+│       ├── docs-sync-rules.json
+│       ├── check_docs_sync.py
+│       └── install-hooks.sh
 ├── docs/
 │   ├── architecture.md
 │   ├── module-rules.md
-│   ├── dependency-graph.{json,dot,html}   # 由 Gradle 任务生成
-└── .github/workflows/ci.yml    # CI：边界校验 + 依赖图 + assembleDebug
+│   ├── doc-sync-rules.md                       # R0 人类详述版
+│   ├── dependency-graph.{json,dot,html}        # 由 Gradle 任务生成
+└── .github/workflows/ci.yml    # CI：docs sync + 边界校验 + 依赖图 + assembleDebug
 ```

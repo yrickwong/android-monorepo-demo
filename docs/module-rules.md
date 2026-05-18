@@ -1,6 +1,8 @@
 # 模块依赖规则
 
 > 校验由 `./gradlew checkDependencyRules` 强制执行（实现：`build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/CheckDependencyRulesTask.kt`）。违反任意一条规则都会让构建失败。
+>
+> 这是工程的"分层契约"。它与 [`AGENTS.md` § Rule 1](../AGENTS.md#rule-1-layered-module-boundaries) 同源；修改本文件的同时通常也要修改 `CheckDependencyRulesTask.kt`，反之亦然（[docs-sync R2](doc-sync-rules.md#r2--dependency-rule-task-changes-must-update-module-rulesmd)）。
 
 ## 规则总览
 
