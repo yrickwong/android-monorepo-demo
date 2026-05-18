@@ -103,7 +103,7 @@ Violating any of these fails the `checkDependencyRules` task **and** CI.
 > feature works".
 
 The full rule set, anti-pattern checklist, and worked Feed example live in
-[`docs/mvi-rules.md`](docs/mvi-rules.md). The five non-negotiable items
+[`docs/mvi-rules.md`](docs/mvi-rules.md). The six non-negotiable items
 (repeated here so nobody pretends they didn't see them):
 
 1. **Hosts** extend `PageHostActivity` (or implement `PageHost`). Pages
@@ -127,6 +127,16 @@ The full rule set, anti-pattern checklist, and worked Feed example live in
    `assembly.replace { }` may only be called by the host, and the trigger
    must be `viewModel.onEach(State::structuralFlag)` — not a bus event,
    not a click listener. Pages cannot see the `Assembly` handle.
+6. **Deep custom views reach the Shell VM via the view tree, not the
+   constructor.** A reusable widget's public surface accepts data only
+   (`bind(noteId)`, `submit(tags)`). The Shell VM, analytics, theme
+   tokens are resolved with `view.requirePageContext()
+   .requireConsume(XxxShellViewModelKey)` — page-scoped, type-checked,
+   no DI container. The framework stamps `PageContext` on every Page
+   root and every `ListPage` row for you; you never call
+   `setPageContext` by hand. See
+   [`docs/mvi-rules.md` § Rule M6](docs/mvi-rules.md) and the worked
+   `NoteActionBar` + `RelatedTagsCarousel` showcase.
 
 Anti-patterns that fail CR automatically (see
 [`docs/mvi-rules.md` § anti-patterns](docs/mvi-rules.md#anti-patterns) for
@@ -141,6 +151,13 @@ the exhaustive list):
   inside the Shell VM, not in PageContext)
 - `hostBus.on<SomeRequest>` used as a synchronous command channel (it's
   fire-and-forget by design; use a VM method)
+- `class FooBar(ctx, attrs, val vm: FeedShellViewModel)` — any reusable
+  custom view that takes the Shell VM through its constructor / setter
+  (use `view.requirePageContext().requireConsume(...)`, Rule M6)
+- `KoinJavaComponent.get<FeedShellViewModel>()` (or any DI lookup) from
+  inside a view to reach the Shell VM — that is the MVI escape hatch
+  Rule M6 was written to close. See
+  [`docs/mvi-rules.md` § Why not Koin](docs/mvi-rules.md#why-not-koin).
 
 Design rationale and the Feed walkthrough live in
 [`docs/architecture.md` § AssembleKit](docs/architecture.md#页面装配框架assemblekit)

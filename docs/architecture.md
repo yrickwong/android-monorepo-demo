@@ -364,6 +364,12 @@ class NoteActionBar(ctx: Context, attrs: AttributeSet?) : LinearLayout(ctx, attr
 - `Page.performAttach` 在 `materialize()` 返回的 view 上 `setTag(R.id.assemblekit_page_context_tag, ctx)`；`performDetach` 清掉，防止 view 被外部 row pool / 截图工具缓存时把 host 引用拖住。
 - `ListPage` 内部 adapter 在 `onCreateViewHolder` 给每个 row 的 `itemView` 也钉一份父 Page 的 PageContext——这样 row 里再深的 view（包括嵌套 RecyclerView 的内层 ViewHolder.itemView，因为它必然挂在某个 row 的子树里）一路 `view.parent` 走上去都能命中。
 
+可运行的端到端示例在 `:features:feed` 里：
+
+- [`NoteActionBar`](../features/feed/src/main/java/com/demo/features/feed/widget/NoteActionBar.kt) 是 row 内 depth-3 的"Like / Share"按钮条，用 `requirePageContext()`（mandatory，失败响亮）。
+- [`RelatedTagsCarousel`](../features/feed/src/main/java/com/demo/features/feed/widget/RelatedTagsCarousel.kt) 里嵌套了一个独立的 `RecyclerView`，单个 tag chip 落在 depth-5 的 ViewHolder.itemView 里，用 `findPageContext()`（nullable，便于 preview 不崩）。
+- 两边点击都打到同一个 `FeedShellViewModel`，结果落在 `FeedShellState.lastShared` / `lastTag` 上，由 **不同 slot 的** `FeedFooterPage` 渲染——这是"深处确实拿到的是当前 host 的 shell VM"的活体证据。
+
 为什么用这个而不是 DI 框架：
 
 - **作用域对齐**：`findPageContext()` 拿到的就是"当前所在那个 Page 的 PageContext"，进而是"当前所在那个 Assembly / 当前那个 host"。DI 容器拿到的是全局某个实例——在多个同类型 host 共存（多 Activity / SplitScreen）时这是 silent bug。
