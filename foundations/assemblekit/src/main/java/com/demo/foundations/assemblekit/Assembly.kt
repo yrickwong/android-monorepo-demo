@@ -12,6 +12,7 @@ import com.demo.foundations.assemblekit.bus.ScopedEventBus
 import com.demo.foundations.assemblekit.local.ScopedContainer
 import com.demo.thirdparty.logger.Logger
 import kotlinx.coroutines.CoroutineScope
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The unit of "things that ship together on one screen".
@@ -33,7 +34,20 @@ import kotlinx.coroutines.CoroutineScope
  */
 class Assembly internal constructor(
     val host: PageHost,
-    val container: ViewGroup,
+    /**
+     * Default container used by any Page that does NOT use the
+     * `at(R.id.…)` DSL to pin itself onto a specific slot.
+     *
+     * Two valid configurations:
+     *  - `container` set, no `at(...)` calls — classic stack-into-one-box.
+     *  - `container = null`, every Page uses `at(...)` — multi-slot layout.
+     *
+     * Mixing is fine: pinned Pages mount where they ask, the rest stack
+     * into the default container. If a Page has neither and there's no
+     * default, attach throws at install time with a pointer to both
+     * fixes.
+     */
+    val container: ViewGroup?,
     /**
      * Direction in which Page views are stacked when [container] is a
      * [LinearLayout]. Ignored for `FrameLayout` / `ConstraintLayout`-style
@@ -56,8 +70,15 @@ class Assembly internal constructor(
     // Buses
     // ------------------------------------------------------------------
 
-    private val assemblyId: String =
-        "asm-${host.hostId}-${container.id.takeIf { it != View.NO_ID } ?: container.hashCode()}"
+    private val assemblyId: String = run {
+        val c = container
+        val tag = when {
+            c == null -> "noDefaultContainer-${ASSEMBLY_COUNTER.incrementAndGet()}"
+            c.id != View.NO_ID -> c.id.toString()
+            else -> c.hashCode().toString()
+        }
+        "asm-${host.hostId}-$tag"
+    }
 
     val bus: ScopedEventBus = ScopedEventBus(tag = "AssemblyBus($assemblyId)")
     val commands: ScopedCommandBus = ScopedCommandBus(tag = "AssemblyCmd($assemblyId)")
@@ -77,16 +98,16 @@ class Assembly internal constructor(
     // Pages
     // ------------------------------------------------------------------
 
-    private val pages = mutableListOf<Page>()
+    private val specs = mutableListOf<MountSpec>()
     private val attached = mutableListOf<Page>()
     private var installed = false
 
     /** Read-only snapshot of attached pages, in declaration order. */
     val pagesSnapshot: List<Page> get() = attached.toList()
 
-    internal fun add(page: Page) {
+    internal fun add(spec: MountSpec) {
         check(!installed) { "Cannot add Page to an already-installed Assembly. Use replace { ... }." }
-        pages += page
+        specs += spec
     }
 
     /**
@@ -114,12 +135,14 @@ class Assembly internal constructor(
             },
         )
 
-        pages.forEachIndexed { index, page ->
-            attachPage(page, index)
+        specs.forEachIndexed { index, spec ->
+            attachPage(spec, index)
         }
     }
 
-    private fun attachPage(page: Page, index: Int) {
+    private fun attachPage(spec: MountSpec, index: Int) {
+        val page = spec.page
+        val mountTarget = spec.resolveContainer(host, container)
         val pageId = derivePageId(page, index)
         // Each page gets its own bus + its own coroutine scope derived from
         // the assembly scope, so we can later add "swap one page" semantics
@@ -154,10 +177,13 @@ class Assembly internal constructor(
         )
 
         try {
-            val view = page.performAttach(ctx, container)
-            container.addView(view, defaultLayoutParams())
+            val view = page.performAttach(ctx, mountTarget)
+            mountTarget.addView(view, defaultLayoutParams(mountTarget))
             attached += page
-            Logger.d(LOG_TAG, "[$assemblyId] attached page #$index id=$pageId")
+            Logger.d(
+                LOG_TAG,
+                "[$assemblyId] attached page #$index id=$pageId into ${describe(mountTarget)}",
+            )
         } catch (t: Throwable) {
             Logger.e(LOG_TAG, "[$assemblyId] failed to attach page #$index: ${t.message}")
             throw t
@@ -167,7 +193,7 @@ class Assembly internal constructor(
     private fun derivePageId(page: Page, index: Int): String =
         "${host.hostId}::${page.javaClass.simpleName}#$index"
 
-    private fun defaultLayoutParams(): ViewGroup.LayoutParams = when (container) {
+    private fun defaultLayoutParams(target: ViewGroup): ViewGroup.LayoutParams = when (target) {
         is LinearLayout -> LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -178,8 +204,13 @@ class Assembly internal constructor(
         )
     }
 
+    private fun describe(v: ViewGroup): String =
+        if (v.id != View.NO_ID) "${v.javaClass.simpleName}(#${Integer.toHexString(v.id)})"
+        else v.javaClass.simpleName
+
     companion object {
         private const val LOG_TAG = "Assembly"
+        private val ASSEMBLY_COUNTER = AtomicInteger(0)
     }
 }
 

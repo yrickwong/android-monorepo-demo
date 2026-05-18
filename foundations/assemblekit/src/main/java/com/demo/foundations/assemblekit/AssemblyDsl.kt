@@ -2,6 +2,7 @@ package com.demo.foundations.assemblekit
 
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import androidx.annotation.IdRes
 import com.demo.foundations.assemblekit.local.PageContextKey
 
 /**
@@ -13,13 +14,14 @@ annotation class AssemblyDsl
 
 /**
  * Builder handed to the `assemble {}` block. Provides the unary-plus
- * operator for the canonical syntax:
+ * operator for the canonical syntax, with optional `at(R.id.…)` for
+ * pinning individual Pages to specific layout slots:
  *
  * ```kotlin
- * assemble(container = root) {
- *     +LoginHeaderPage()
- *     +LoginBodyPage()
- *     +LoginBottomPage()
+ * assemble(container = root) {                 // default container
+ *     +LoginHeaderPage()                       // → root
+ *     +LoginBodyPage() at R.id.body_slot       // → R.id.body_slot
+ *     +LoginBottomPage()                       // → root
  * }
  * ```
  *
@@ -29,15 +31,34 @@ annotation class AssemblyDsl
 @AssemblyDsl
 class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
 
-    /** Canonical: `+MyPage()` appends to the assembly. */
-    operator fun <P : Page> P.unaryPlus(): P {
-        assembly.add(this)
-        return this
+    /**
+     * Canonical: `+MyPage()` appends to the assembly. Returns a
+     * [MountSpec] so the call site can chain `at(R.id.…)`.
+     */
+    operator fun <P : Page> P.unaryPlus(): MountSpec {
+        val spec = MountSpec(this)
+        assembly.add(spec)
+        return spec
+    }
+
+    /**
+     * Pin this page to a specific slot in the host layout, by view id.
+     * The id must resolve to a [ViewGroup] inside the host's
+     * `setContentView()` tree at the time `assemble {}` runs.
+     *
+     * ```kotlin
+     * +HeaderPage() at R.id.slot_top
+     * ```
+     */
+    infix fun MountSpec.at(@IdRes containerId: Int): MountSpec = apply {
+        containerIdOverride = containerId
     }
 
     /** Functional variant: `page(myPageFactory.create())`. */
-    fun page(page: Page) {
-        assembly.add(page)
+    fun page(page: Page): MountSpec {
+        val spec = MountSpec(page)
+        assembly.add(spec)
+        return spec
     }
 
     /**
@@ -75,16 +96,41 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
 }
 
 /**
- * Entry point: build an [Assembly] inside [container] and immediately
+ * Entry point: build an [Assembly] inside this host and immediately
  * install every Page declared in [block].
  *
- * @param container the ViewGroup that will receive Page views. Use a
- *   `LinearLayout` for simple vertical stacks; a `FrameLayout` /
- *   `ConstraintLayout` if Pages position themselves.
- * @param orientation only honoured when [container] is a [LinearLayout].
+ * Two valid usages:
+ *
+ *  - **Single container** (legacy / simple screens):
+ *    ```kotlin
+ *    assemble(container = root) {
+ *        +HeaderPage()
+ *        +BodyPage()
+ *        +BottomPage()
+ *    }
+ *    ```
+ *
+ *  - **Multi-slot layout** (Pages pin themselves):
+ *    ```kotlin
+ *    assemble(host = this) {
+ *        +HeaderPage()  at R.id.slot_top
+ *        +BodyPage()    at R.id.slot_middle
+ *        +BottomPage()  at R.id.slot_bottom
+ *    }
+ *    ```
+ *
+ *  - **Mixed**: provide a default container *and* let individual Pages
+ *    override with `at(…)` when needed.
+ *
+ * @param container Optional default container for Pages that do not
+ *   pin themselves with `at(R.id.…)`. Pass `null` (or omit) for a
+ *   pure multi-slot layout — but then every Page MUST use `at(...)`,
+ *   otherwise install throws.
+ * @param orientation Honoured only when the resolved mount target is
+ *   a [LinearLayout]; ignored otherwise.
  */
 fun PageHost.assemble(
-    container: ViewGroup,
+    container: ViewGroup? = null,
     orientation: Int = LinearLayout.VERTICAL,
     block: AssemblyBuilder.() -> Unit,
 ): Assembly {

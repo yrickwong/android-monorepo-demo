@@ -1,5 +1,7 @@
 package com.demo.foundations.assemblekit
 
+import android.view.ViewGroup
+import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LifecycleOwner
@@ -59,6 +61,17 @@ interface PageHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwne
      * ```
      */
     val hostLocal: ScopedContainer
+
+    /**
+     * Resolve a [ViewGroup] by id within this host's view tree. Used by
+     * the `at(R.id.…)` DSL to pin individual Pages onto specific slots
+     * inside the host's `setContentView()` layout.
+     *
+     * Returns `null` if the id is not present (or the host hasn't called
+     * `setContentView` yet, in which case `assemble {}` was called too
+     * early — fix the call site, don't make this swallow).
+     */
+    fun findContainer(@IdRes id: Int): ViewGroup?
 }
 
 /**
@@ -99,6 +112,8 @@ abstract class PageHostActivity : AppCompatActivity(), PageHost {
         ScopedContainer.root(debugName = "hostLocal($hostId)")
     }
 
+    override fun findContainer(@IdRes id: Int): ViewGroup? = findViewById(id)
+
     // Activity already implements ViewModelStoreOwner, LifecycleOwner and
     // SavedStateRegistryOwner; nothing else to wire here.
 }
@@ -126,6 +141,8 @@ abstract class PageHostFragment : Fragment, PageHost {
     override val hostLocal: ScopedContainer by lazy {
         ScopedContainer.root(debugName = "hostLocal($hostId)")
     }
+
+    override fun findContainer(@IdRes id: Int): ViewGroup? = view?.findViewById(id)
 
     /** Convenience accessor matching Activity's `lifecycleScope` syntax. */
     @Suppress("unused")
