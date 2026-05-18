@@ -43,6 +43,7 @@ include(":foundations:router")
 include(":foundations:analytics")
 include(":foundations:ui")
 include(":foundations:communicate")
+include(":foundations:assemblekit")
 
 // :third-party:*
 include(":third-party:logger")
