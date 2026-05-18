@@ -1,0 +1,23 @@
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Assembly.kt
+  s_7bcef85f274e42::t_a2ce842beecc2b 103-105,186,197-280
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt
+  s_7bcef85f274e42::t_a689a654a74790 205-211,239-254,281-295
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/local/ScopedContainer.kt
+  s_7bcef85f274e42::t_c158dae03e6a73 101-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e86342bfbe7ad0f6479366e38ae97f0fe847b3fd",
+  "prompts": {},
+  "sessions": {
+    "s_7bcef85f274e42": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "3cd70886-68bf-443d-a828-db54e253b3c0",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
