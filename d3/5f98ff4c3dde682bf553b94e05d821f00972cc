@@ -1,0 +1,52 @@
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageViewModel.kt
+  s_d4ae9a8844c429::t_78be421f81c7d1 1-2,7
+  s_bcf32155885fc6::t_5fba24d51162cc 3-6,8-73
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/bus/ScopedEventBus.kt
+  s_bcf32155885fc6::t_3e01389f1f38eb 1-71
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageContext.kt
+  s_bcf32155885fc6::t_1779e78ce57dcf 1-55
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageHost.kt
+  s_bcf32155885fc6::t_ce66ae8e1b04c3 1-103
+foundations/assemblekit/src/main/AndroidManifest.xml
+  s_bcf32155885fc6::t_067a91e9610c87 1-2
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/AssemblyDsl.kt
+  s_bcf32155885fc6::t_0b29416964161e 1-72
+foundations/assemblekit/consumer-rules.pro
+  s_bcf32155885fc6::t_5d1b0e1927dc75 1-8
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt
+  s_bcf32155885fc6::t_1884205e38c088 1-91,101-258
+  s_bcf32155885fc6::t_e6ede786c588a7 92-100
+settings.gradle.kts
+  s_bcf32155885fc6::t_81958646b17a93 46
+foundations/assemblekit/build.gradle.kts
+  s_bcf32155885fc6::t_8742442f8aea88 1-22
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Assembly.kt
+  s_bcf32155885fc6::t_6c4ed67e64f39d 122-124
+  s_bcf32155885fc6::t_5c86e1b2c6f52a 1-121,125-165
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/bus/ScopedCommandBus.kt
+  s_bcf32155885fc6::t_4ab19fe9158424 1-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "d35f98ff4c3dde682bf553b94e05d821f00972cc",
+  "prompts": {},
+  "sessions": {
+    "s_bcf32155885fc6": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "75761c49-bd33-46fe-a4f2-87e7745d1fd0",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    },
+    "s_d4ae9a8844c429": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "bdb553f9-964a-4721-be81-e35882bf2265",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
