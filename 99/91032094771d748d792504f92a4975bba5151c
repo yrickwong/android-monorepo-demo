@@ -1,0 +1,84 @@
+gradle/libs.versions.toml
+  s_d5a0532f3ecb3b::t_efdf407ca89f63 13,42
+  s_2efa690a286755::t_43f30e6192b4a0 16-21,47-56
+build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/AndroidFoundationComposeConventionPlugin.kt
+  s_2efa690a286755::t_b8eb278b93dbcb 1-27
+foundations/assemblekit-compose/build.gradle.kts
+  s_2efa690a286755::t_ee4fdea94d7958 1-26
+foundations/assemblekit-compose/src/main/AndroidManifest.xml
+  s_2efa690a286755::t_6165d044f7f115 1-2
+docs/sharding-shell-vm.md
+  s_d5a0532f3ecb3b::t_7e555b260d5bb7 1-297
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewTreePageContext.kt
+  s_2efa690a286755::t_39790896985738 18-21
+build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/AndroidLibraryConventionBase.kt
+  s_2efa690a286755::t_b799e84eecba7c 5,7-8,12-19,21-24,28-29,40-48,52-66
+foundations/assemblekit-compose/README.md
+  s_2efa690a286755::t_83284ef8535ed3 1-218
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/MultiTypeListPage.kt
+  s_2efa690a286755::t_b0f50a9b6f0464 191,203
+  s_d5a0532f3ecb3b::t_6c581f9b57dde7 1-190,192-202,204-270
+README.md
+  s_2efa690a286755::t_70dc3cf24e5101 15-18,206-207,210-211
+foundations/assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/LocalPageContext.kt
+  s_2efa690a286755::t_f71dcb81d7cdd3 1-77
+build-logic/convention/build.gradle.kts
+  s_2efa690a286755::t_4e59f6bc7ad49c 39-42
+docs/mvi-rules.md
+  s_2efa690a286755::t_761510f1330122 220-230,234-235
+  s_2efa690a286755::t_7ebddf16b39b34 42-56
+  s_d5a0532f3ecb3b::t_a8d4187f244600 112-122
+settings.gradle.kts
+  s_2efa690a286755::t_c09a9988237dd0 48
+foundations/assemblekit/build.gradle.kts
+  s_d5a0532f3ecb3b::t_0006c1b219c50c 24-28
+docs/architecture.md
+  s_d5a0532f3ecb3b::t_0b60341f9de799 221-223
+  s_2efa690a286755::t_f4239edd7e3792 27,76-77,81,216,391,447-453
+  s_2efa690a286755::t_3b1428da6ebed7 387,390
+  s_d5a0532f3ecb3b::t_9d09eaebee2691 386,389
+docs/module-rules.md
+  s_2efa690a286755::t_2e7e77501d44d8 127-129
+foundations/assemblekit-compose/consumer-rules.pro
+  s_2efa690a286755::t_fd46ce7f7b87b5 1-4
+foundations/assemblekit/README.md
+  s_d5a0532f3ecb3b::t_247450add80f77 343-377
+  s_2efa690a286755::t_07d30458eb4f5e 62-67,76
+  s_d5a0532f3ecb3b::t_9e5c79a80ef1b3 42-43,52-53,75,78,80
+  s_2efa690a286755::t_3e590831d6d986 557,559,578
+  s_d5a0532f3ecb3b::t_8ee01e715e2065 206-240
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/AsyncViewPage.kt
+  s_d5a0532f3ecb3b::t_ab35baa74f7755 1-173
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt
+  s_2efa690a286755::t_ca711bee1c0bd1 135-136,140-148,150
+  s_2efa690a286755::t_d96b661fd598bc 27-35,38,52
+AGENTS.md
+  s_2efa690a286755::t_03e18429254cba 110-116
+  s_d5a0532f3ecb3b::t_a122b725e2f726 171-175
+foundations/assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/ComposablePage.kt
+  s_2efa690a286755::t_d8a54d2922c15f 1-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "9991032094771d748d792504f92a4975bba5151c",
+  "prompts": {},
+  "sessions": {
+    "s_2efa690a286755": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "68c33912-12a8-4c05-b164-14882bada42e",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    },
+    "s_d5a0532f3ecb3b": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "f17d4ed2-6429-49fa-8bf6-7b14842d7263",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
