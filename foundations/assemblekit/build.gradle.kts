@@ -17,6 +17,10 @@ dependencies {
     api(libs.androidx.savedstate.ktx)
     api(libs.kotlinx.coroutines.android)
 
+    // ListPage 直接以 RecyclerView 作为 Page 视图，对外暴露 ItemBinder<T> 契约
+    // 所以以 api 暴露给 :features:* / :bizlibs:*。
+    api(libs.androidx.recyclerview)
+
     implementation(project(":foundations:common"))
     implementation(project(":third-party:logger"))
 }
