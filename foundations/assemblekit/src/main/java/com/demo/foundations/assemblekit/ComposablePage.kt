@@ -14,7 +14,7 @@ import android.view.ViewGroup
  *     }
  * }
  *
- * assemble(host = this) {
+ * assemble {
  *     +FeedHeaderPage() at R.id.slot_top   // identical to ViewPage at the call site
  *     +ClassicListPage()                    // co-exists with ViewPages
  * }

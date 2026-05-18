@@ -41,5 +41,6 @@ object Router {
         const val LOGIN = "login"
         const val HOME = "home"
         const val PROFILE = "profile"
+        const val FEED = "feed"
     }
 }

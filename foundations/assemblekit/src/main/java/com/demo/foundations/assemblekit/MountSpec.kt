@@ -56,7 +56,7 @@ class MountSpec internal constructor(internal val page: Page) {
                     "Page did not use 'at(R.id.…)' to pick one. " +
                     "Use one of:\n" +
                     "    assemble(container = root) { +MyPage() }              // fallback for all\n" +
-                    "    assemble(host = this)      { +MyPage() at R.id.slot } // explicit per-page",
+                    "    assemble                    { +MyPage() at R.id.slot } // explicit per-page",
             )
     }
 }

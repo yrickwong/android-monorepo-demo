@@ -76,6 +76,15 @@ class HomeActivity : AppCompatActivity() {
             Router.navigate(this, Router.Paths.PROFILE)
         }
 
+        // Open the Feed module — a self-contained AssembleKit v2 demo.
+        // Note: no compile-time dependency on :features:feed; we navigate
+        // through the same Router that home -> profile uses.
+        binding.goFeed.setOnClickListener {
+            Analytics.logEvent("home_goto_feed_click")
+            Analytics.logNavigation(from = "home", to = "feed")
+            Router.navigate(this, Router.Paths.FEED)
+        }
+
         // ---- SPI demo #3: ILogoutService (action-style) -----------
         binding.logout.setOnClickListener {
             Analytics.logEvent("home_logout_click")

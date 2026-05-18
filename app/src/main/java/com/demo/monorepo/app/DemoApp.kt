@@ -2,6 +2,7 @@ package com.demo.monorepo.app
 
 import android.app.Application
 import com.airbnb.mvrx.Mavericks
+import com.demo.features.feed.FeedActivity
 import com.demo.features.home.HomeActivity
 import com.demo.features.login.LoginActivity
 import com.demo.features.profile.ProfileActivity
@@ -48,6 +49,7 @@ class DemoApp : Application() {
         Router.register(Router.Paths.LOGIN, LoginActivity::class.java)
         Router.register(Router.Paths.HOME, HomeActivity::class.java)
         Router.register(Router.Paths.PROFILE, ProfileActivity::class.java)
+        Router.register(Router.Paths.FEED, FeedActivity::class.java)
 
         // SPI: expose app-layer capabilities to lower layers without
         // forcing them to depend on `:app`. Implementations live here

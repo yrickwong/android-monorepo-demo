@@ -55,7 +55,7 @@ interface PageHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwne
      *     override fun onCreate(s: Bundle?) {
      *         super.onCreate(s)
      *         hostLocal[FeedRepositoryKey] = FeedRepository.real()
-     *         assemble(host = this) { +HeaderPage(); +FeedListPage() }
+     *         assemble { +HeaderPage(); +FeedListPage() }
      *     }
      * }
      * ```

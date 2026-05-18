@@ -83,7 +83,7 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
      * ```kotlin
      * val FeedRepositoryKey = pageContextKey<FeedRepository>("feed.repo")
      *
-     * assemble(host = this) {
+     * assemble {
      *     provides(FeedRepositoryKey, FeedRepository.real())
      *     +FeedHeaderPage()
      *     +FeedListPage()
@@ -112,7 +112,7 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
  *
  *  - **Multi-slot layout** (Pages pin themselves):
  *    ```kotlin
- *    assemble(host = this) {
+ *    assemble {
  *        +HeaderPage()  at R.id.slot_top
  *        +BodyPage()    at R.id.slot_middle
  *        +BottomPage()  at R.id.slot_bottom
