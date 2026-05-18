@@ -1,6 +1,7 @@
 package com.demo.monorepo.app
 
 import android.app.Application
+import com.airbnb.mvrx.Mavericks
 import com.demo.features.home.HomeActivity
 import com.demo.features.login.LoginActivity
 import com.demo.features.profile.ProfileActivity
@@ -38,6 +39,10 @@ class DemoApp : Application() {
                 message,
             )
         }
+
+        // Wire up Airbnb Mavericks (the MVI engine driving every Page).
+        // Must be called before any MavericksViewModel is constructed.
+        Mavericks.initialize(this)
 
         // Register feature routes once at app start.
         Router.register(Router.Paths.LOGIN, LoginActivity::class.java)
