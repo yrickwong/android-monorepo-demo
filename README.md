@@ -1,6 +1,6 @@
 # Monorepo Demo（Android · Kotlin · Gradle KTS）
 
-> 一个**极简但完整**的 Android Monorepo Demo，用来演示大型客户端代码库的工程治理能力：分层模块、Convention Plugin、依赖边界校验、依赖图生成、Affected modules 分析、CI。
+> 一个**极简但完整**的 Android Monorepo Demo，用来演示大型客户端代码库的工程治理能力：分层模块、Convention Plugin、依赖边界校验、依赖图生成、Affected modules 分析、CI，以及一套 **DSL 化的页面装配框架（AssembleKit + Mavericks MVI）**。
 >
 > Demo 优先**可运行 + 结构清晰**，便于团队直接做 workshop / 演示。
 
@@ -11,6 +11,8 @@ app/                     :app                   组合根，注册路由
 features/                :features:login/home/profile
 bizlibs/                 :bizlibs:account/user
 foundations/             :foundations:common/network/storage/router/analytics/ui
+                         :foundations:communicate  (SPI: feature/bizlib ↔ app)
+                         :foundations:assemblekit  (Page / Assembly DSL + Mavericks MVI)
 third-party/             :third-party:logger
 build-logic/             Convention Plugins（独立 included build）
 tools/affected-modules/  affected_modules.py
@@ -62,10 +64,13 @@ Launcher → Login → Home → Profile
 
 启动后：
 1. App 进入 `LauncherActivity`，由 `:foundations:router` 跳到 Login。
-2. 默认填好的账密 `demo-user / demo-pass` 点击 Login。
-3. 进入 Home，展示 `UserRepository` 返回的资料。
-4. 点击 "Go to Profile" 进入 Profile 页。
-5. 全程通过 `:foundations:analytics` 打 logcat（tag 前缀 `MonorepoDemo/`）。
+2. Login 页由 `assemble { +LoginHeaderPage(); +LoginBodyPage(); +LoginBottomPage() }` 装配出来，Body 内部用 Mavericks `Async<Session>` 表达登录过程，三个 Page 之间靠 `ScopedEventBus` 通信。
+3. 默认填好的账密 `demo-user / demo-pass` 点击 Login。
+4. 进入 Home，展示 `UserRepository` 返回的资料。
+5. 点击 "Go to Profile" 进入 Profile 页。
+6. 全程通过 `:foundations:analytics` 打 logcat（tag 前缀 `MonorepoDemo/`）。
+
+> 想看页面装配框架的设计动机、三层 scope 模型与替代时机，见 [`docs/architecture.md` § 页面装配框架（AssembleKit）](docs/architecture.md#页面装配框架assemblekit)。
 
 ## 4. 如何触发非法依赖检查
 

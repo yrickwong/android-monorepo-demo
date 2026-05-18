@@ -29,8 +29,10 @@
 
 - **`features` 横向解耦**：跨 feature 的跳转走 `:foundations:router`。在 demo 中，`HomeActivity` 想打开 `ProfileActivity` 时调用 `Router.navigate(this, Router.Paths.PROFILE)`，而不是 `import com.demo.features.profile.ProfileActivity`。这样 `:features:home` 和 `:features:profile` 才能保持相互独立、可独立维护、可被裁剪。
 - **`bizlibs` 抽业务**：feature 之间复用的业务能力（账号、用户、IM 等）下沉到 bizlib。bizlib 持有数据与状态，feature 只做 UI 编排。
-- **`foundations` 做平台**：网络、存储、路由、埋点是稳定的平台能力，独立于业务。
+- **`foundations` 做平台**：网络、存储、路由、埋点是稳定的平台能力，独立于业务。页面装配（`:foundations:assemblekit`）也归在这一层——它是平台级 UI 装配能力，谁都不允许反向依赖它。
 - **`third-party` 做适配**：第三方 SDK / 适配器，禁止反向依赖业务，避免“升级一个 SDK 拉爆整个项目”。
+
+> 同层互依赖在 `:foundations:*` 内部是被允许的（例如 `:foundations:assemblekit → :foundations:common`、`:foundations:ui → :foundations:common`），这是为了让 foundation 可以复用更小的 foundation 原子；其他层一律禁止同层互依赖。
 
 ## 触发非法依赖示例
 
@@ -110,6 +112,17 @@ dependencies {
 ```
 1. :third-party:logger  →  :foundations:analytics   [third-party must not depend on business modules]
 ```
+
+## 合法依赖示例（不会被校验拦下）
+
+| 边 | 解释 |
+| --- | --- |
+| `:features:login → :foundations:assemblekit` | feature → foundation，规则允许 |
+| `:foundations:assemblekit → :foundations:common` | foundation 内部互相依赖，允许 |
+| `:foundations:assemblekit → :third-party:logger`  | foundation → third-party，允许 |
+| `:app → :foundations:assemblekit` | app 是组合根，可以依赖任何模块 |
+
+新增 foundation 模块时，按上面这几条对照即可——既不需要改 `CheckDependencyRulesTask`，也不需要在这份文档里追加新规则。
 
 ## 实现细节
 

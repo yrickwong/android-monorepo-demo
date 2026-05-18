@@ -29,6 +29,9 @@ dependencies {
     implementation(project(":foundations:network"))
     implementation(project(":foundations:storage"))
     implementation(project(":foundations:communicate"))
+    // Need Mavericks.initialize() in DemoApp.onCreate; the assemblekit
+    // module is the single canonical place where Mavericks is wired.
+    implementation(project(":foundations:assemblekit"))
 
     // bizlibs
     implementation(project(":bizlibs:account"))

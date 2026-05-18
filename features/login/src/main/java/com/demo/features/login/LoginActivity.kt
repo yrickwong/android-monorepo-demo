@@ -1,21 +1,30 @@
 package com.demo.features.login
 
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import com.demo.bizlibs.account.AccountRepository
+import androidx.lifecycle.lifecycleScope
 import com.demo.features.login.databinding.LoginActivityBinding
+import com.demo.features.login.page.LoginBodyPage
+import com.demo.features.login.page.LoginBottomPage
+import com.demo.features.login.page.LoginHeaderPage
 import com.demo.foundations.analytics.Analytics
-import com.demo.foundations.communicate.IRemoteConfig
-import com.demo.foundations.communicate.ServiceRegistry
-import com.demo.foundations.communicate.getOrNull
+import com.demo.foundations.assemblekit.PageHostActivity
+import com.demo.foundations.assemblekit.assemble
 import com.demo.foundations.router.Router
 import com.demo.foundations.ui.Toaster
 
 /**
- * Step 1 of the demo flow: enter username/password → tap "Login" →
- * delegate to `:bizlibs:account` → navigate to `home` via `:foundations:router`.
+ * The Activity is now intentionally tiny: its only job is to inflate a
+ * container, declare which Pages live on this screen, and listen on the
+ * host bus for the one event it actually cares about — *whether the
+ * login finished*.
+ *
+ * Everything else (text input, validation, submit-on-click, async state,
+ * analytics) is owned by the three Pages, which can be reordered,
+ * gated behind RemoteConfig, or replaced individually without touching
+ * this file. Compare with `git log -p LoginActivity.kt` to see how much
+ * code moved out.
  */
-class LoginActivity : AppCompatActivity() {
+class LoginActivity : PageHostActivity() {
 
     private lateinit var binding: LoginActivityBinding
 
@@ -26,38 +35,29 @@ class LoginActivity : AppCompatActivity() {
 
         Analytics.logPageView("login")
 
-        // SPI demo: let the app/server decide whether to prefill the
-        // demo credentials (useful to turn off for screenshots /
-        // production builds).
-        val prefillDemo = ServiceRegistry.getOrNull<IRemoteConfig>()
-            ?.getBoolean(IRemoteConfig.Keys.LOGIN_PREFILL_DEMO_CREDENTIALS, default = true)
-            ?: true
-        if (prefillDemo) {
-            binding.username.setText("demo-user")
-            binding.password.setText("demo-pass")
+        // ---- Declare the screen as a sequence of Pages -------------------
+        // This is the only place where "what does Login look like?" is
+        // expressed. Add/remove/reorder Pages here.
+        assemble(container = binding.assemblyContainer) {
+            +LoginHeaderPage()
+            +LoginBodyPage()
+            +LoginBottomPage()
         }
 
-        binding.loginButton.setOnClickListener {
-            val u = binding.username.text?.toString().orEmpty()
-            val p = binding.password.text?.toString().orEmpty()
-
-            Analytics.logEvent("login_button_click", mapOf("username" to u))
-
-            val result = AccountRepository.login(u, p)
-            when (result) {
-                is com.demo.foundations.common.Result.Success -> {
-                    Toaster.short(this, "Welcome, ${result.data.username}")
-                    Analytics.logNavigation(from = "login", to = "home")
-                    Router.navigate(this, Router.Paths.HOME)
-                    finish()
-                }
-                is com.demo.foundations.common.Result.Failure -> {
-                    Toaster.short(this, "Login failed: ${result.throwable.message}")
-                    Analytics.logEvent(
-                        "login_failure",
-                        mapOf("reason" to (result.throwable.message ?: "unknown")),
-                    )
-                }
+        // ---- Host-level concerns: routing, toasts, top-level analytics ---
+        // The Pages emit a single LoginFinished event onto the host bus;
+        // the Activity is the only thing that knows how to navigate.
+        hostBus.on<LoginEvent.LoginFinished>(lifecycleScope) { event ->
+            if (event.success) {
+                Toaster.short(this@LoginActivity, "Welcome, ${event.username}")
+                Analytics.logNavigation(from = "login", to = "home")
+                Router.navigate(this@LoginActivity, Router.Paths.HOME)
+                finish()
+            } else {
+                Toaster.short(
+                    this@LoginActivity,
+                    "Login failed: ${event.errorMessage ?: "unknown"}",
+                )
             }
         }
     }

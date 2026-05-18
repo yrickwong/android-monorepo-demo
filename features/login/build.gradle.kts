@@ -12,6 +12,8 @@ dependencies {
     implementation(project(":foundations:router"))
     implementation(project(":foundations:analytics"))
     implementation(project(":foundations:communicate"))
+    // Page / Assembly / assemble{} DSL + transitively pulls in Mavericks.
+    implementation(project(":foundations:assemblekit"))
     implementation(project(":bizlibs:account"))
 
     implementation(libs.androidx.activity.ktx)
