@@ -17,8 +17,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 
 /**
- * A single, lightweight UI slice that knows how to inflate itself, hook
- * up a Mavericks ViewModel, and talk to its siblings via scoped buses.
+ * A single, lightweight UI slice that knows how to materialise itself,
+ * hook up a Mavericks ViewModel, and talk to its siblings via scoped buses.
+ *
+ * `Page` is intentionally **abstract over the rendering mechanism** — the
+ * actual "produce a View" contract lives on the concrete subtypes:
+ *
+ *  - [ViewPage]        — classic XML / inflated View layer (default today)
+ *  - [ComposablePage]  — Jetpack Compose payload (stub; ships in
+ *    `:foundations:assemblekit-compose` once the team is ready)
+ *
+ * Everything below — lifecycle, savedstate, buses, Mavericks ViewModel
+ * delegate, host bridging — is identical for both flavours.
  *
  * Why not just use a Fragment?
  *  - Pages don't go on the back stack. There is no FragmentManager, no
@@ -32,27 +42,13 @@ import kotlinx.coroutines.Job
  *
  *  ```
  *  attach(ctx)     -> Lifecycle.State.CREATED
- *  onCreateView    -> ...
- *  onViewCreated   -> still CREATED
+ *  materialize     -> ... (ViewPage.onCreateView / ComposablePage.Content)
  *  hostStart       -> STARTED
  *  hostResume      -> RESUMED
  *  hostPause       -> STARTED
  *  hostStop        -> CREATED
  *  detach          -> DESTROYED   (pageScope cancelled, buses unreachable)
  *  ```
- *
- * Subclasses override [onCreateView] and (optionally) [onViewCreated].
- * To attach a Mavericks ViewModel, use the [pageViewModel] delegate:
- *
- * ```kotlin
- * class LoginBodyPage : Page() {
- *     private val viewModel: LoginBodyViewModel by pageViewModel()
- *     override fun onCreateView(...): View = inflate(R.layout.login_page_body)
- *     override fun onViewCreated(view: View) {
- *         viewModel.onEach(LoginBodyState::canSubmit) { ... }
- *     }
- * }
- * ```
  */
 abstract class Page(
     /**
@@ -79,9 +75,9 @@ abstract class Page(
     // ------------------------------------------------------------------
 
     /**
-     * The environment object handed in by the framework at [attach].
+     * The environment object handed in by the framework at [performAttach].
      * Accessing it before attach throws — by design: subclasses should
-     * not assume an environment until `onCreateView` runs.
+     * not assume an environment until [materialize] runs.
      */
     protected lateinit var context: PageContext
         private set
@@ -124,25 +120,25 @@ abstract class Page(
     // ------------------------------------------------------------------
 
     /**
-     * Inflate (or build) the root [View] of this Page. The returned view
-     * is added to the assembly container in declaration order.
+     * Produce the root [View] for this Page. Called once, between
+     * `ON_CREATE` and the host's first `ON_START` event.
      *
-     * Prefer `inflater.inflate(layoutId, parent, /* attachToRoot = */ false)`
-     * — never attach to root yourself; the framework does that after
-     * applying layout params.
+     * Concrete subtypes implement this:
+     *  - [ViewPage] inflates XML and runs `onCreateView` + `onViewCreated`
+     *  - [ComposablePage] wraps a `Content()` composable in a `ComposeView`
+     *
+     * The returned View is added to the assembly container by the framework;
+     * subclasses must **not** add it themselves.
      */
-    abstract fun onCreateView(inflater: LayoutInflater, parent: ViewGroup): View
+    internal abstract fun materialize(inflater: LayoutInflater, parent: ViewGroup): View
 
     /**
-     * Called once after [onCreateView] returns. Set up listeners, bind
-     * ViewModels, subscribe to buses here. Do **not** start work here
-     * that should be tied to STARTED/RESUMED — observe [lifecycle]
-     * instead.
+     * Generic teardown hook. Called after the View is detached and right
+     * before [Lifecycle.State.DESTROYED]. [ViewPage] funnels its own
+     * `onDestroyView` through here; subclasses with other resources
+     * (Compose disposables, native handles, …) can override directly.
      */
-    open fun onViewCreated(view: View) = Unit
-
-    /** Called after the page's view is removed and the page is being torn down. */
-    open fun onDestroyView() = Unit
+    protected open fun onDestroy(): Unit = Unit
 
     // ------------------------------------------------------------------
     // Event / command helpers
@@ -185,9 +181,8 @@ abstract class Page(
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
 
         val inflater = LayoutInflater.from(parent.context)
-        val created = onCreateView(inflater, parent)
+        val created = materialize(inflater, parent)
         view = created
-        onViewCreated(created)
 
         // Mirror host's current lifecycle state — if the host is already
         // STARTED/RESUMED when the assembly is built, we catch up
@@ -199,9 +194,9 @@ abstract class Page(
 
     internal fun performDetach() {
         try {
-            onDestroyView()
+            onDestroy()
         } catch (t: Throwable) {
-            Logger.w(LOG_TAG, "onDestroyView threw for $pageId: ${t.message}")
+            Logger.w(LOG_TAG, "onDestroy threw for $pageId: ${t.message}")
         }
         view = null
         if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {

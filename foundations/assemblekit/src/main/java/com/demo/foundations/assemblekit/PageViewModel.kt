@@ -30,7 +30,7 @@ import com.airbnb.mvrx.MavericksViewModelProvider
  *
  * Usage:
  * ```kotlin
- * class LoginBodyPage : Page() {
+ * class LoginBodyPage : ViewPage() {
  *     private val viewModel: LoginBodyViewModel by pageViewModel()
  *     // ...
  * }
