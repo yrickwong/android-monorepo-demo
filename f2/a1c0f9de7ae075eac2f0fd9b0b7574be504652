@@ -1,0 +1,26 @@
+foundations/assemblekit/build.gradle.kts
+  s_7bcef85f274e42::t_86ed2dc387e8e5 20-23
+gradle/libs.versions.toml
+  s_7bcef85f274e42::t_766e896e72369b 12,34
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ItemBinder.kt
+  s_7bcef85f274e42::t_2589a3ca93ca43 1-81
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt
+  s_7bcef85f274e42::t_da10604aa76f13 1-72,77-83,85-148
+  s_7bcef85f274e42::t_b19530ca79788a 73-76,84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "f2a1c0f9de7ae075eac2f0fd9b0b7574be504652",
+  "prompts": {},
+  "sessions": {
+    "s_7bcef85f274e42": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "3cd70886-68bf-443d-a828-db54e253b3c0",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
