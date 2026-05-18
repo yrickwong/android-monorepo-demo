@@ -69,12 +69,48 @@ internal class FeedRepository {
     }
 
     private fun seed(): List<Note> = listOf(
-        Note(id = "n1", title = "AssembleKit ships v2", author = "framework-team", likes = 12),
-        Note(id = "n2", title = "Mavericks 3 deep dive", author = "mvi-fans", likes = 27),
-        Note(id = "n3", title = "RecyclerView still wins", author = "perf-team", likes = 4),
-        Note(id = "n4", title = "When to use Fragments (rarely)", author = "afire", likes = 88),
-        Note(id = "n5", title = "Modular Android in 2024", author = "platform", likes = 15),
-        Note(id = "n6", title = "DSLs without the magic", author = "kotlin-news", likes = 33),
+        Note(
+            id = "n1",
+            title = "AssembleKit ships v2",
+            author = "framework-team",
+            likes = 12,
+            tags = listOf("framework", "android", "mvi"),
+        ),
+        Note(
+            id = "n2",
+            title = "Mavericks 3 deep dive",
+            author = "mvi-fans",
+            likes = 27,
+            tags = listOf("mvi", "airbnb", "state"),
+        ),
+        Note(
+            id = "n3",
+            title = "RecyclerView still wins",
+            author = "perf-team",
+            likes = 4,
+            tags = listOf("perf", "recyclerview"),
+        ),
+        Note(
+            id = "n4",
+            title = "When to use Fragments (rarely)",
+            author = "afire",
+            likes = 88,
+            tags = listOf("fragments", "anti-pattern", "android"),
+        ),
+        Note(
+            id = "n5",
+            title = "Modular Android in 2024",
+            author = "platform",
+            likes = 15,
+            tags = listOf("monorepo", "gradle", "convention-plugins"),
+        ),
+        Note(
+            id = "n6",
+            title = "DSLs without the magic",
+            author = "kotlin-news",
+            likes = 33,
+            tags = listOf("kotlin", "dsl"),
+        ),
     )
 
     companion object {

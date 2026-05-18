@@ -30,6 +30,22 @@ import com.demo.features.feed.model.Note
 internal data class FeedShellState(
     val notes: Async<List<Note>> = Uninitialized,
     val showBanner: Boolean = false,
+    /**
+     * Last note id that received a `share` click from `NoteActionBar`.
+     * Nullable because nothing has been shared yet on a fresh launch.
+     * The footer Page renders this so a human reviewing the demo can
+     * eyeball that a click 3 layers deep actually mutated shell state.
+     */
+    val lastShared: String? = null,
+    /**
+     * Last tag a user tapped inside `RelatedTagsCarousel`'s inner
+     * RecyclerView. Same role as [lastShared] but for the even-deeper
+     * (4 layers) ViewHolder case. Kept here, not in a Page-local VM,
+     * because the footer summary needs to see it too — proof that
+     * `findPageContext()` correctly resolves the *shared* VM and not
+     * some accidental row-scoped instance.
+     */
+    val lastTag: String? = null,
 ) : MavericksState {
 
     /**
