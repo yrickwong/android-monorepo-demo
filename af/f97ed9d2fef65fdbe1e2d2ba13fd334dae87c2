@@ -1,0 +1,44 @@
+features/feed/src/main/java/com/demo/features/feed/page/FeedFooterPage.kt
+  s_2a2d774398c326::t_c71620d0f6e786 15-19,21-29,44,58-68
+features/feed/src/main/res/layout/feed_widget_tag_chip.xml
+  s_2a2d774398c326::t_46dc3d54343599 1-18
+features/feed/src/main/java/com/demo/features/feed/widget/NoteActionBar.kt
+  s_2a2d774398c326::t_927ab15c751cb4 1-72,75-109
+  s_2a2d774398c326::t_9e8eb7b4d1fcce 73-74
+features/feed/src/main/java/com/demo/features/feed/FeedShellState.kt
+  s_2a2d774398c326::t_ff463b98150507 33-48
+features/feed/src/main/java/com/demo/features/feed/model/Note.kt
+  s_2a2d774398c326::t_5005682491de8c 8-13,20
+features/feed/src/main/res/layout/feed_widget_note_action_bar.xml
+  s_2a2d774398c326::t_df854c68d2bff4 1-34
+features/feed/src/main/java/com/demo/features/feed/FeedShellViewModel.kt
+  s_2a2d774398c326::t_1abb5c03a8ce7a 64-86
+features/feed/src/main/java/com/demo/features/feed/data/FeedRepository.kt
+  s_2a2d774398c326::t_45d3268ded86b4 72-113
+features/feed/src/main/java/com/demo/features/feed/widget/RelatedTagsCarousel.kt
+  s_2a2d774398c326::t_b8afab17fb3464 1-126
+features/feed/src/main/res/values/strings.xml
+  s_2a2d774398c326::t_ec7b86f361ede9 11,13-19
+features/feed/src/main/res/layout/feed_item_note.xml
+  s_2a2d774398c326::t_1bb836990117ad 2-9,37-61
+features/feed/src/main/java/com/demo/features/feed/binder/NoteItemBinder.kt
+  s_2a2d774398c326::t_6bd871bbedfa91 16-21,23-41,56-63,72-73
+features/feed/src/main/res/layout/feed_page_footer.xml
+  s_2a2d774398c326::t_43c4b69449b99e 2-9,13,15-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "aff97ed9d2fef65fdbe1e2d2ba13fd334dae87c2",
+  "prompts": {},
+  "sessions": {
+    "s_2a2d774398c326": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "3a89c443-4847-4b4f-9c61-62d44f0f726b",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
