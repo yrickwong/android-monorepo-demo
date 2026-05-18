@@ -213,6 +213,7 @@ v2 把上面的"一个页面装三个 Page"扩展到**真实业务页面常见�
 | --- | --- | --- |
 | Page 抽象分层 | `Page` (base) / `ViewPage` / `ComposablePage` (stub) | 让框架核心和 UI 渲染机制解耦——今天写 XML，明天接 Compose，无需改 `Assembly` / `PageContext` |
 | Scoped context locals | `provides(key, value)` / `consume(key)` / `requireConsume(key)` | 把"页面内所有 Page 都要拿的东西"（首选**就是这个页面的 Mavericks Shell VM**）一次性放在 assembly scope，子级用 `requireConsume` 取，零构造参数透传；类型化 key，跨模块不会撞名 |
+| **View-tree 访问** | `view.findPageContext()` / `view.requirePageContext()` | 任何一个 N 层深的自定义子 View / 内嵌 RecyclerView 的 ViewHolder 都能"沿 parent 链找到最近 Page 的 PageContext"，从而 `requireConsume(ShellVMKey)` 直接拿 VM——不再需要 binder/adapter 一层层把 VM 或 callback 透传进去；与 AndroidX 的 `ViewTreeLifecycleOwner` 同款机制 |
 | 多槽位挂载 | `+MyPage() at R.id.slot_xxx` | 同一个布局想塞多个 Page、又不想都堆进 `LinearLayout`；缺槽位时**install 阶段抛错**，比运行时空指针好定位 |
 | Host 驱动 replace | `assembly.replace { … }` | 登录成功/AB 切换/抽屉切换等"结构性变化"，由**宿主**整体重组当前 Assembly；触发条件**必须**从 Mavericks 状态来（`viewModel.onEach(State::structuralFlag)`），不能由 Page 自己经事件总线请求——保证旋屏/进程死后重建后结构正确 |
 | 列表渲染 | `ListPage<T>(itemsFlow, ItemBinder)` / `ItemBinder<T>` | 列表行复用父 Page 的 `PageContext`（context transparency），1000 行 ≠ 1000 个生命周期；`itemsFlow` 推荐从 `viewModel.stateFlow.map { it.xxx }.distinctUntilChanged()` 派生，**不要**直接喂 repo 的 hot flow |
@@ -338,6 +339,36 @@ class FeedListPage(notes: Flow<List<Note>>) : ListPage<Note>(notes, NoteItemBind
 - 父 Page 的 `PageContext` 直接传给 `ItemBinder`，所以"行里要拿 Shell VM"完全不需要走构造函数链——用 `ctx.requireConsume(XxxShellViewModelKey)` 一行搞定。
 - `itemsFlow` 用 `collectLatest` 订阅，慢消费者不会堆帧；`onDestroyView` 会主动断开 adapter 引用，避免 `replace` 周期间残留。
 - 行内**只读 + 发命令**：不要在 `ItemBinder.bind` 里持有可变状态、不要在行里 `viewModel.onEach`。需要根据"行"维度反应状态，把那段状态做成 VM 里的 `Map<ItemId, X>` 切片，从 `itemsFlow` 派生出渲染数据。
+
+**View-tree PageContext 访问**（自定义 View / 内嵌 RecyclerView 拿 VM 的标准方式）：
+
+```kotlin
+// 在 :features:* 里写一个可复用 widget——构造参数零业务耦合
+class NoteActionBar(ctx: Context, attrs: AttributeSet?) : LinearLayout(ctx, attrs) {
+    private var noteId: String? = null
+    fun bind(noteId: String) { this.noteId = noteId }
+
+    init {
+        likeButton.setOnClickListener {
+            // 沿 view.parent 链向上找最近的 PageContext 钉子
+            requirePageContext()
+                .requireConsume(FeedShellViewModelKey)
+                .likeOne(noteId ?: return@setOnClickListener)
+        }
+    }
+}
+```
+
+谁负责钉？两个地方各一次：
+
+- `Page.performAttach` 在 `materialize()` 返回的 view 上 `setTag(R.id.assemblekit_page_context_tag, ctx)`；`performDetach` 清掉，防止 view 被外部 row pool / 截图工具缓存时把 host 引用拖住。
+- `ListPage` 内部 adapter 在 `onCreateViewHolder` 给每个 row 的 `itemView` 也钉一份父 Page 的 PageContext——这样 row 里再深的 view（包括嵌套 RecyclerView 的内层 ViewHolder.itemView，因为它必然挂在某个 row 的子树里）一路 `view.parent` 走上去都能命中。
+
+为什么用这个而不是 DI 框架：
+
+- **作用域对齐**：`findPageContext()` 拿到的就是"当前所在那个 Page 的 PageContext"，进而是"当前所在那个 Assembly / 当前那个 host"。DI 容器拿到的是全局某个实例——在多个同类型 host 共存（多 Activity / SplitScreen）时这是 silent bug。
+- **不给 MVI 留后门**：Koin/Hilt 让 view 能直接拿到 repository，结果就是有人在 view 里直接调 `repo.markRead(id)`，Shell VM 永远看不见这次 mutate → 状态漂移。`findPageContext()` 的唯一路径是 PageContext → key → VM，命令只能落在 VM 上。
+- **轻**：零运行时反射、零代码生成、零 module-graph 配置；规则文档详见 [`docs/mvi-rules.md`](mvi-rules.md) § "Why not Koin/Hilt"。
 
 **当前刻意不支持的能力**（以及怎么绕开）：
 

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        View-tag id used by Page.performAttach (and ListPage's row creator)
+        to stamp the active PageContext onto a View. Any descendant View
+        can then look up the nearest PageContext via View.findPageContext()
+        without taking it as a constructor / setter parameter.
+
+        Mirrors AndroidX' ViewTree* pattern: ViewTreeLifecycleOwner /
+        ViewTreeViewModelStoreOwner all use exactly this trick.
+    -->
+    <item name="assemblekit_page_context_tag" type="id" />
+</resources>
