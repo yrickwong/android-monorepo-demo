@@ -1,0 +1,31 @@
+features/login/src/main/java/com/demo/features/login/page/LoginBodyPage.kt
+  s_7bcef85f274e42::t_47521ca0d83573 13,30
+features/login/src/main/java/com/demo/features/login/page/LoginBottomPage.kt
+  s_7bcef85f274e42::t_42d7743a64d86d 9,27
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageViewModel.kt
+  s_7bcef85f274e42::t_c83ee6bdf4f47a 33
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ComposablePage.kt
+  s_7bcef85f274e42::t_29299b813bcc90 1-61
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt
+  s_7bcef85f274e42::t_0a6995e400702c 20-31,45,78,80,123-128,130-131,133,136-139,141,184,197,199
+features/login/src/main/java/com/demo/features/login/page/LoginHeaderPage.kt
+  s_7bcef85f274e42::t_09e0e07da094fc 7,15
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewPage.kt
+  s_7bcef85f274e42::t_f79e4a37a9fc73 1-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "b8d60402f45aa00c0bd5c73b543c99f797d569a1",
+  "prompts": {},
+  "sessions": {
+    "s_7bcef85f274e42": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "3cd70886-68bf-443d-a828-db54e253b3c0",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
