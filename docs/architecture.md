@@ -196,6 +196,93 @@ class LoginActivity : PageHostActivity() {
 
 > 与 SPI 的分工：**SPI 解耦"上下层之间不能直接 import"**，assemblekit 解耦**"同一层、同一页面内部模块之间的引用"**。两者正交，互不替代。
 
+#### AssembleKit v2：列表、上下文、多槽位、Host 驱动 replace
+
+v2 把上面的"一个页面装三个 Page"扩展到**真实业务页面常见的四种增量需求**——全部以**最小可读**为目标，不引入新概念栈。
+
+| 主题 | 入口 API | 解决了什么问题 |
+| --- | --- | --- |
+| Page 抽象分层 | `Page` (base) / `ViewPage` / `ComposablePage` (stub) | 让框架核心和 UI 渲染机制解耦——今天写 XML，明天接 Compose，无需改 `Assembly` / `PageContext` |
+| Scoped context locals | `provides(key, value)` / `consume(key)` / `requireConsume(key)` | 仓库/点击桥/主题 token 等"页面里所有人都要拿"的值，不再走构造函数链；类型化 key，跨模块不会撞名 |
+| 多槽位挂载 | `+MyPage() at R.id.slot_xxx` | 同一个布局想塞多个 Page、又不想都堆进 `LinearLayout`；缺槽位时**install 阶段抛错**，比运行时空指针好定位 |
+| Host 驱动 replace | `assembly.replace { … }` | 登录成功/AB 切换/抽屉切换等"结构性变化"，由**宿主**整体重组当前 Assembly；Page 自己拿不到 Assembly 句柄——这是有意的，避免 Page 互相 swap |
+| 列表渲染 | `ListPage<T>(itemsFlow, ItemBinder)` / `ItemBinder<T>` | 列表行复用父 Page 的 `PageContext`（context transparency），1000 行 ≠ 1000 个生命周期；DiffUtil 内置 |
+
+**Scoped locals 的三层 fallback**（与三层 scope 一一对应）：
+
+```
+ScopedContainer:  pageLocal ──parent──▶ assemblyLocal ──parent──▶ hostLocal
+读 (resolve):     先 page，找不到向上回退到 assembly，再到 host
+写 (set/provides): 只写当前层，子作用域可以 shadow 父层但永远不会反向污染
+```
+
+调用约定：
+
+- 模块顶层 `val FeedRepositoryKey = pageContextKey<FeedRepository>("feed.repository")`，**identity-keyed**（实例即身份），同名 key 不同 `val` 互不影响。
+- 在 `assemble { provides(FeedRepositoryKey, repo); … }` 里在装配阶段一次性放好；
+- 在 Page / Binder 里用 `consume(FeedRepositoryKey)` 或 `requireConsume(...)`（缺失时抛带定位信息的错）。
+
+**多槽位 + replace 的契约**：
+
+```kotlin
+// XML 里只是几个 ViewGroup 槽位
+assemble {                                     // 不指定默认 container
+    provides(FeedRepositoryKey, repository)
+    provides(NoteClickKey) { note -> … }
+    +FeedHeaderPage()                at R.id.feed_header_slot
+    +FeedListPage(repository.notes)  at R.id.feed_body_slot
+    +FeedFooterPage()                at R.id.feed_footer_slot
+}.also { feedAssembly = it }
+
+hostBus.on<FeedEvent.ToggleBannerRequested>(lifecycleScope) {
+    feedAssembly.replace {                     // 宿主决定换什么
+        provides(FeedRepositoryKey, repository)
+        provides(NoteClickKey) { note -> … }
+        +FeedHeaderPage()                at R.id.feed_header_slot
+        if (bannerVisible) +FeedBannerPage()   at R.id.feed_body_slot
+        +FeedListPage(repository.notes)  at R.id.feed_body_slot
+        +FeedFooterPage()                at R.id.feed_footer_slot
+    }
+}
+```
+
+`replace` 的语义边界：
+
+- 按**声明逆序**逐页 `performDetach` → 移除视图 → 清空 `assemblyLocal` 条目；`hostLocal` / `hostBus` / ViewModel store **不动**——所以 Page 关心的"我所在的宿主"那一面跨 replace 是稳定的。
+- 旧 Page 的 `LifecycleEventObserver` 在 `performDetach` 里**显式 remove**（v2 顺手修了一个潜在的观察者泄漏：见 `Page.hostObserver`）。
+- 新组合的 `provides` 必须在新 block 内重新声明——这是有意的"明文优先"，让"替换后还看得到旧 provides"这种隐含状态不可能存在。
+- ViewModel 不被驱逐；同一 Page 类型再次出现时会拿到上一次的 VM（key 仍是 `{pageId}::{VMClass}`）。短生命的 bottom-sheet 类场景未来会加 `Assembly.dispose()` 显式释放。
+
+**ListPage 与 ItemBinder**：
+
+```kotlin
+val NoteRepoKey  = pageContextKey<NoteRepository>("note.repo")
+val NoteClickKey = pageContextKey<(Note) -> Unit>("note.click")
+
+object NoteItemBinder : ItemBinder<Note> {
+    override fun createView(parent: ViewGroup, ctx: PageContext): View = … // 仅 inflate
+    override fun bind(view: View, item: Note, position: Int, ctx: PageContext) {
+        val onClick = ctx.requireConsume(NoteClickKey)  // 拿到的就是宿主给的那个 lambda
+        view.findViewById<TextView>(R.id.title).text = item.title
+        view.setOnClickListener { onClick(item) }
+    }
+    override fun areItemsTheSame(old: Note, new: Note) = old.id == new.id
+    // areContentsTheSame 默认 == 即可，data class 等价语义直接复用
+}
+
+class NotesListPage(notes: Flow<List<Note>>) : ListPage<Note>(notes, NoteItemBinder)
+```
+
+- 行级别**没有 Page 实体**：1000 行不会有 1000 个 `Lifecycle / ViewModel / ScopedEventBus`；`ItemBinder` 是无状态对象。
+- 父 Page 的 `PageContext` 直接传给 `ItemBinder`，所以"行里要用仓库/点击桥"完全不需要走构造函数链。
+- `itemsFlow` 用 `collectLatest` 订阅，慢消费者不会堆帧；`onDestroyView` 会主动断开 adapter 引用，避免 `replace` 周期间残留。
+
+**当前刻意不支持的能力**（以及怎么绕开）：
+
+- 跨 Assembly 通信（同一宿主里两个 Assembly 互发事件）——**不允许**。让宿主当中转：两个 Assembly 都向 `hostBus` 发，宿主用 `hostBus.on { … }` 决定路由。
+- 异构列表（不同类型的行混排）——v2 用两个 `ListPage` 串联或等后续 `MultiTypeListPage`。
+- Compose 真实接入——`ComposablePage` 是 stub，落地放在 `:foundations:assemblekit-compose`（单独模块，便于不引 Compose 的工程零成本继续用 ViewPage）。
+
 ### 2. 依赖边界校验
 
 `./gradlew checkDependencyRules` 遍历所有子模块的声明依赖（`api` / `implementation` / `compileOnly` / `runtimeOnly` / `testImplementation` / `androidTestImplementation` / `debugImplementation` / `releaseImplementation`），按规则表逐项校验，违反即抛 `GradleException` 并列出所有违规边。
@@ -218,9 +305,11 @@ class LoginActivity : PageHostActivity() {
 monorepo-demo/
 ├── app/                        # 应用壳
 ├── features/                   # 业务 feature
-│   ├── login/
-│   ├── home/
-│   └── profile/
+│   ├── login/                  # 经典 assemble { } 三段式（v1 标准案例）
+│   ├── home/                   # SPI 演示 + Router 入口（含 "Open Feed"）
+│   ├── profile/
+│   └── feed/                   # AssembleKit v2 综合演示：
+│                               #   ListPage + provides/consume + at() + replace
 ├── bizlibs/                    # 业务库
 │   ├── account/
 │   └── user/
@@ -233,6 +322,9 @@ monorepo-demo/
 │   ├── ui/
 │   ├── communicate/            # SPI：跨层反向通信（feature/bizlib ← app）
 │   └── assemblekit/            # Page / Assembly DSL + Mavericks MVI 集成
+│                               # v2: ViewPage / ComposablePage (stub) / ListPage
+│                               #     + scoped locals (provides/consume)
+│                               #     + per-page at(R.id) + Assembly.replace { }
 ├── third-party/                # 三方 / 适配
 │   └── logger/
 ├── build-logic/                # Convention plugins（独立 included build）

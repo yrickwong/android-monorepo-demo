@@ -8,11 +8,12 @@
 
 ```
 app/                     :app                   组合根，注册路由
-features/                :features:login/home/profile
+features/                :features:login/home/profile/feed
 bizlibs/                 :bizlibs:account/user
 foundations/             :foundations:common/network/storage/router/analytics/ui
                          :foundations:communicate  (SPI: feature/bizlib ↔ app)
                          :foundations:assemblekit  (Page / Assembly DSL + Mavericks MVI)
+                                                   v2: ListPage + scoped locals + at(id) + replace
 third-party/             :third-party:logger
 build-logic/             Convention Plugins（独立 included build）
 tools/affected-modules/  affected_modules.py
@@ -68,9 +69,14 @@ Launcher → Login → Home → Profile
 3. 默认填好的账密 `demo-user / demo-pass` 点击 Login。
 4. 进入 Home，展示 `UserRepository` 返回的资料。
 5. 点击 "Go to Profile" 进入 Profile 页。
-6. 全程通过 `:foundations:analytics` 打 logcat（tag 前缀 `MonorepoDemo/`）。
+6. 点击 "Open Feed (AssembleKit v2 demo)" 进入 `:features:feed`——它一口气演示了 v2 的四件套：
+   - `ListPage<Note>` + `ItemBinder` 渲染 RecyclerView 列表，行的点击/数据全部通过 `consume(...)` 获取（context transparency）；
+   - `provides(FeedRepositoryKey, repo)` 把仓库挂到 assembly 作用域，列表行和 footer 各自独立拿；
+   - 三个 Page 用 `+HeaderPage() at R.id.feed_header_slot` 等 `at(id)` 语法挂到多槽位布局；
+   - 头部的"Toggle banner"按钮触发 `assembly.replace { … }`，由宿主整体重组当前 Assembly（增删一个 `FeedBannerPage`），其他 Page 状态不丢。
+7. 全程通过 `:foundations:analytics` 打 logcat（tag 前缀 `MonorepoDemo/`）。
 
-> 想看页面装配框架的设计动机、三层 scope 模型与替代时机，见 [`docs/architecture.md` § 页面装配框架（AssembleKit）](docs/architecture.md#页面装配框架assemblekit)。
+> 想看页面装配框架的设计动机、三层 scope 模型与替代时机，见 [`docs/architecture.md` § 页面装配框架（AssembleKit）](docs/architecture.md#页面装配框架assemblekit)；v2 的 locals / mount / replace / list / Compose roadmap 细节见同节 [§ AssembleKit v2](docs/architecture.md#assemblekit-v2列表上下文多槽位host-驱动-replace)。
 
 ## 4. 如何触发非法依赖检查
 
@@ -142,6 +148,7 @@ python3 tools/affected-modules/affected_modules.py --base main --pretty
     ":app",
     ":bizlibs:account",
     ":bizlibs:user",
+    ":features:feed",
     ":features:home",
     ":features:login",
     ":features:profile",
