@@ -41,6 +41,7 @@ dependencies {
     implementation(project(":features:login"))
     implementation(project(":features:home"))
     implementation(project(":features:profile"))
+    implementation(project(":features:feed"))
 
     // third-party
     implementation(project(":third-party:logger"))

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Source-of-truth mapping of 'when code changes, which docs must be updated in the same commit/PR'. Consumed by tools/docs-sync/check_docs_sync.py and AGENTS.md.",
+  "rules": [
+    {
+      "id": "R1-assemblekit-api",
+      "title": "AssembleKit framework changes must update architecture.md",
+      "triggers": [
+        "foundations/assemblekit/src/main/**/*.kt"
+      ],
+      "requires_any_of": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Public Page / ViewPage / Assembly / ListPage / scoped locals API and behaviour are documented in architecture.md (§ AssembleKit, § AssembleKit v2). Any source change in this folder MUST be reflected there.",
+      "exempt_paths": [
+        "foundations/assemblekit/src/test/**",
+        "foundations/assemblekit/src/androidTest/**"
+      ]
+    },
+    {
+      "id": "R2-module-rules",
+      "title": "Dependency-rule task changes must update module-rules.md",
+      "triggers": [
+        "build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/CheckDependencyRulesTask.kt"
+      ],
+      "requires_any_of": [
+        "docs/module-rules.md"
+      ],
+      "rationale": "CheckDependencyRulesTask.kt is the single source of truth for layer enforcement. Its docs lives in module-rules.md."
+    },
+    {
+      "id": "R3-new-module",
+      "title": "Gradle module include changes must update structure docs",
+      "triggers": [
+        "settings.gradle.kts"
+      ],
+      "requires_all_of": [
+        "docs/architecture.md",
+        "docs/module-rules.md",
+        "README.md"
+      ],
+      "rationale": "settings.gradle.kts changes typically add/remove a module. Architecture diagram, module-rules examples, and README structure all need to stay in sync.",
+      "diff_must_contain": "include("
+    },
+    {
+      "id": "R4-router-paths",
+      "title": "Router path table changes must update architecture.md",
+      "triggers": [
+        "foundations/router/src/main/java/com/demo/foundations/router/Router.kt"
+      ],
+      "requires_any_of": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Router.Paths is the cross-feature navigation contract; the path table is described in architecture.md."
+    },
+    {
+      "id": "R5-ci",
+      "title": "CI workflow changes must update architecture.md or README",
+      "triggers": [
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml"
+      ],
+      "requires_any_of": [
+        "docs/architecture.md",
+        "README.md"
+      ],
+      "rationale": "When CI jobs are added/removed/reordered, the 'CI' section in architecture.md and the readme overview must reflect it."
+    },
+    {
+      "id": "R6-tools",
+      "title": "New tooling scripts must be documented",
+      "triggers": [
+        "tools/**/*.py",
+        "tools/**/*.sh"
+      ],
+      "requires_any_of": [
+        "docs/architecture.md",
+        "README.md",
+        "tools/**/README.md"
+      ],
+      "rationale": "Every Python/shell tool under tools/ is part of the engineering surface; it needs an entry in architecture.md or its own README so newcomers can find it.",
+      "only_when_added": true
+    },
+    {
+      "id": "R7-conv-plugin",
+      "title": "New / renamed Convention Plugins must update architecture.md",
+      "triggers": [
+        "build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/*ConventionPlugin.kt"
+      ],
+      "requires_any_of": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Convention Plugin IDs (demo.android.application / .feature / .foundation / .bizlib …) are referenced verbatim in architecture.md.",
+      "only_when_added_or_renamed": true
+    },
+    {
+      "id": "R8-libs-major",
+      "title": "New libraries / version-catalog additions must update architecture.md",
+      "triggers": [
+        "gradle/libs.versions.toml"
+      ],
+      "requires_any_of": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Adding a new library (e.g. recyclerview, mavericks, future compose) is a stack-level decision and must be reflected in the architecture stack overview.",
+      "diff_must_contain_any_of": ["[libraries]", "[versions]"]
+    }
+  ],
+  "skip_markers": {
+    "global": "[docs-skip]",
+    "per_rule": "[docs-skip:<rule_id>]"
+  },
+  "notes": [
+    "Rules are evaluated against the union of: committed changes between base...HEAD, staged changes, and unstaged changes. CI uses base = origin/main.",
+    "A rule fails when its triggers match changed files but none of its required docs are also in the changed set.",
+    "Use skip_markers in any commit message in the PR to bypass a rule when it genuinely does not apply (e.g. pure refactor with no behaviour change). Justify the skip in the PR description."
+  ]
+}

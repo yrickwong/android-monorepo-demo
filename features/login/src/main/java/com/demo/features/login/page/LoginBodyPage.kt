@@ -10,7 +10,7 @@ import com.demo.features.login.LoginBodyViewModel
 import com.demo.features.login.LoginEvent
 import com.demo.features.login.databinding.LoginPageBodyBinding
 import com.demo.foundations.analytics.Analytics
-import com.demo.foundations.assemblekit.Page
+import com.demo.foundations.assemblekit.ViewPage
 import com.demo.foundations.assemblekit.pageViewModel
 import com.demo.foundations.communicate.IRemoteConfig
 import com.demo.foundations.communicate.ServiceRegistry
@@ -27,7 +27,7 @@ import com.demo.foundations.communicate.getOrNull
  * concern lives in the host. The Page only exposes facts ("login
  * succeeded with this user") and lets the host decide.
  */
-internal class LoginBodyPage : Page() {
+internal class LoginBodyPage : ViewPage() {
 
     private val viewModel: LoginBodyViewModel by pageViewModel()
 

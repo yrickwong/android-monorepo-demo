@@ -196,6 +196,155 @@ class LoginActivity : PageHostActivity() {
 
 > 与 SPI 的分工：**SPI 解耦"上下层之间不能直接 import"**，assemblekit 解耦**"同一层、同一页面内部模块之间的引用"**。两者正交，互不替代。
 
+#### AssembleKit v2：列表、上下文、多槽位、Host 驱动 replace
+
+v2 把上面的"一个页面装三个 Page"扩展到**真实业务页面常见的四种增量需求**——全部以**最小可读**为目标，不引入新概念栈。
+
+> **硬约束（写业务前必读）**：所有业务页面**必须**走 `assemble {}` + Mavericks。
+> 任何"页面里有可观察状态"的代码——网络回包、用户输入、loading/失败、列表数据——
+> 一律以 `MavericksState` + `MavericksViewModel`（或 `PageViewModel`）持有，Pages 通过
+> `viewModel.onEach(prop)` / `onAsync(prop)` 订阅切片，**严禁**在 Page 里直接 `collect`
+> 一个 `Repository.someFlow` 或者自己持有 `MutableStateFlow`。规则全文与反模式清单见
+> [`docs/mvi-rules.md`](mvi-rules.md)，强制性条款写在 [`AGENTS.md`](../AGENTS.md) Rule 2。
+> 这条约束的存在是为了让"两套真相源 (repo flow + Mavericks state) 漂移"
+> 这种最常见的 bug 变成一条**结构性不可能发生**的属性，而不是靠 CR 抓。
+
+| 主题 | 入口 API | 解决了什么问题 |
+| --- | --- | --- |
+| Page 抽象分层 | `Page` (base) / `ViewPage` / `ComposablePage` (stub) | 让框架核心和 UI 渲染机制解耦——今天写 XML，明天接 Compose，无需改 `Assembly` / `PageContext` |
+| Scoped context locals | `provides(key, value)` / `consume(key)` / `requireConsume(key)` | 把"页面内所有 Page 都要拿的东西"（首选**就是这个页面的 Mavericks Shell VM**）一次性放在 assembly scope，子级用 `requireConsume` 取，零构造参数透传；类型化 key，跨模块不会撞名 |
+| 多槽位挂载 | `+MyPage() at R.id.slot_xxx` | 同一个布局想塞多个 Page、又不想都堆进 `LinearLayout`；缺槽位时**install 阶段抛错**，比运行时空指针好定位 |
+| Host 驱动 replace | `assembly.replace { … }` | 登录成功/AB 切换/抽屉切换等"结构性变化"，由**宿主**整体重组当前 Assembly；触发条件**必须**从 Mavericks 状态来（`viewModel.onEach(State::structuralFlag)`），不能由 Page 自己经事件总线请求——保证旋屏/进程死后重建后结构正确 |
+| 列表渲染 | `ListPage<T>(itemsFlow, ItemBinder)` / `ItemBinder<T>` | 列表行复用父 Page 的 `PageContext`（context transparency），1000 行 ≠ 1000 个生命周期；`itemsFlow` 推荐从 `viewModel.stateFlow.map { it.xxx }.distinctUntilChanged()` 派生，**不要**直接喂 repo 的 hot flow |
+
+**Scoped locals 的三层 fallback**（与三层 scope 一一对应）：
+
+```
+ScopedContainer:  pageLocal ──parent──▶ assemblyLocal ──parent──▶ hostLocal
+读 (resolve):     先 page，找不到向上回退到 assembly，再到 host
+写 (set/provides): 只写当前层，子作用域可以 shadow 父层但永远不会反向污染
+```
+
+调用约定：
+
+- 模块顶层用 `pageContextKey<T>("ns.symbol")` 声明，**identity-keyed**（实例即身份），同名 key 不同 `val` 互不影响。
+- 业务侧**强约定**：每个业务页面持有一个 _Shell ViewModel_（`MavericksViewModel<TState>`），并在 assembly 顶层 `provides(XxxShellViewModelKey, vm)`。所有子 Page / `ItemBinder` 用 `requireConsume(XxxShellViewModelKey)` 拿同一个实例——这就是该页面的"唯一真相源"。
+- 仓库 (`Repository`)、点击 lambda 等**不要**再单独 `provides` 进 PageContext。它们是 VM 的实现细节，VM 暴露的应当是 `MavericksState` 切片和命令方法（`refresh()` / `like(id)` / `toggleBanner()`）。
+- `consume(key)` 在缺失时返回 `null`；`requireConsume(key)` 缺失时抛带定位信息的错——业务侧默认用后者。
+
+**Feed 走读：从 Activity 到行级 Binder**（`:features:feed` 的真实代码）：
+
+```kotlin
+// 1. 顶层 key（模块顶层 val）
+val FeedShellViewModelKey = pageContextKey<FeedShellViewModel>("feed.shellViewModel")
+
+// 2. State + ViewModel（单一 SoT）
+data class FeedShellState(
+    val notes: Async<List<Note>> = Uninitialized,
+    val showBanner: Boolean = false,
+) : MavericksState {
+    val noteList: List<Note> get() = notes() ?: emptyList()
+}
+
+class FeedShellViewModel(
+    initialState: FeedShellState,
+    private val repo: FeedRepository,
+) : MavericksViewModel<FeedShellState>(initialState) {
+    init { refresh() }
+    fun refresh() = suspend { repo.load() }.execute { copy(notes = it) }
+    fun likeOne(id: String) = setState { copy(notes = Success(repo.like(id))) }
+    fun toggleBanner()      = setState { copy(showBanner = !showBanner) }
+
+    companion object : MavericksViewModelFactory<FeedShellViewModel, FeedShellState> {
+        override fun create(vc: ViewModelContext, s: FeedShellState) =
+            FeedShellViewModel(s, FeedRepository())
+    }
+}
+
+// 3. Activity：建 VM → 装 assembly → 用 onEach 把"结构性状态"翻译成 replace
+class FeedActivity : AppCompatActivity(R.layout.activity_feed), MavericksView {
+    override fun invalidate() = Unit                    // 用 onEach 选择性订阅
+    private lateinit var assembly: Assembly
+    private lateinit var viewModel: FeedShellViewModel
+
+    override fun onCreate(b: Bundle?) {
+        super.onCreate(b)
+        viewModel = MavericksViewModelProvider.get(
+            viewModelClass = FeedShellViewModel::class.java,
+            stateClass     = FeedShellState::class.java,
+            viewModelContext = ActivityViewModelContext(this, null),
+            key            = "feed_shell",
+        )
+        installAssembly(showBanner = false)
+        viewModel.onEach(FeedShellState::showBanner) { show ->
+            if (!assembly.matchesBannerState(show)) installAssembly(show) // guard 见下
+        }
+    }
+
+    private fun installAssembly(showBanner: Boolean) {
+        val notesFlow = viewModel.stateFlow
+            .map { it.noteList }.distinctUntilChanged()
+        val block: AssemblyScope.() -> Unit = {
+            provides(FeedShellViewModelKey, viewModel)
+            provides(BannerStateKey, showBanner)                       // replace guard 用
+            +FeedHeaderPage()                at R.id.feed_header_slot
+            if (showBanner) +FeedBannerPage() at R.id.feed_body_slot
+            +FeedListPage(notesFlow)          at R.id.feed_body_slot
+            +FeedFooterPage()                 at R.id.feed_footer_slot
+        }
+        if (::assembly.isInitialized) assembly.replace(block) else assembly = assemble(block)
+    }
+}
+
+// 4. 子 Page / Binder：consume VM，事件直接调方法，状态用 onEach 订阅
+class FeedHeaderPage : ViewPage<HeaderBinding>(R.layout.page_feed_header, …) {
+    override fun onViewCreated(b: HeaderBinding) {
+        val vm = requireConsume(FeedShellViewModelKey)
+        b.btnRefresh.setOnClickListener { vm.refresh() }
+        b.btnBanner.setOnClickListener  { vm.toggleBanner() }
+    }
+}
+
+object NoteItemBinder : ItemBinder<Note> {
+    override fun createView(parent: ViewGroup, ctx: PageContext): View = … // 仅 inflate
+    override fun bind(view: View, item: Note, position: Int, ctx: PageContext) {
+        val vm = ctx.requireConsume(FeedShellViewModelKey)
+        view.findViewById<TextView>(R.id.title).text = item.title
+        view.setOnClickListener { vm.likeOne(item.id) }
+    }
+    override fun areItemsTheSame(old: Note, new: Note) = old.id == new.id
+}
+
+class FeedListPage(notes: Flow<List<Note>>) : ListPage<Note>(notes, NoteItemBinder)
+```
+
+为什么这样设计：
+
+- **`replace` 的触发条件必须来自 state，不是来自事件**。`viewModel.onEach(State::showBanner)` 在旋屏/进程死后重建会自动 replay 当前 state，自然把结构补齐；如果改成 `hostBus.on<ToggleBannerRequested>` 这种边沿信号，重建后就丢了。这也是为什么 Page 拿不到 Assembly 句柄——结构性变化必须经过宿主、经过 VM 状态。
+- **避免 `onEach → replace → onEach` 死循环**：`installAssembly` 在 assembly scope 里 `provides(BannerStateKey, showBanner)`；下一帧 `onEach` 触发时先 `assembly.matchesBannerState(show)` 比对一下旧值，相等则直接 return——这是 Pages 之外的纯宿主逻辑，业务 VM 里不沾这层细节。
+- **`ListPage` 的 `itemsFlow` 从 `viewModel.stateFlow` 派生**（`.map { it.noteList }.distinctUntilChanged()`），不直接喂 `repo.someFlow`。这样列表的"现在显示什么"和 VM 状态严格一致——做 Loading 占位、做错误态、做乐观更新都只改 VM，列表自动跟上。
+
+`replace` 的语义边界：
+
+- 按**声明逆序**逐页 `performDetach` → 移除视图 → 清空 `assemblyLocal` 条目；`hostLocal` / `hostBus` / ViewModel store **不动**——所以 Page 关心的"我所在的宿主"那一面跨 replace 是稳定的。Activity 级别的 Mavericks ViewModel 也不会被 replace 干掉，因为它存活在 `ViewModelStoreOwner`（Activity）里，不在 `assemblyLocal` 里。
+- 旧 Page 的 `LifecycleEventObserver` 在 `performDetach` 里**显式 remove**（v2 顺手修了一个潜在的观察者泄漏：见 `Page.hostObserver`）。
+- 新组合的 `provides` 必须在新 block 内重新声明——这是有意的"明文优先"，让"替换后还看得到旧 provides"这种隐含状态不可能存在。
+- Mavericks 的 `onEach` 用 `subscriptionLifecycleOwner`，对 Page 而言就是 Page 自己；`performDetach` 把 Page 推到 `ON_DESTROY`，订阅随之取消——所以"老 Page 还在监听"这种悬挂引用不会发生。
+- Page 内的 `PageViewModel` 不被驱逐；同一 Page 类型再次出现时会拿到上一次的 VM（key 仍是 `{pageId}::{VMClass}`）。短生命的 bottom-sheet 类场景未来会加 `Assembly.dispose()` 显式释放。
+
+**ListPage 与 ItemBinder 的协议要点**：
+
+- 行级别**没有 Page 实体**：1000 行不会有 1000 个 `Lifecycle / ViewModel / ScopedEventBus`；`ItemBinder` 是无状态对象。
+- 父 Page 的 `PageContext` 直接传给 `ItemBinder`，所以"行里要拿 Shell VM"完全不需要走构造函数链——用 `ctx.requireConsume(XxxShellViewModelKey)` 一行搞定。
+- `itemsFlow` 用 `collectLatest` 订阅，慢消费者不会堆帧；`onDestroyView` 会主动断开 adapter 引用，避免 `replace` 周期间残留。
+- 行内**只读 + 发命令**：不要在 `ItemBinder.bind` 里持有可变状态、不要在行里 `viewModel.onEach`。需要根据"行"维度反应状态，把那段状态做成 VM 里的 `Map<ItemId, X>` 切片，从 `itemsFlow` 派生出渲染数据。
+
+**当前刻意不支持的能力**（以及怎么绕开）：
+
+- 跨 Assembly 通信（同一宿主里两个 Assembly 互发事件）——**不允许**。让宿主当中转：两个 Assembly 都向 `hostBus` 发，宿主用 `hostBus.on { … }` 决定路由。
+- 异构列表（不同类型的行混排）——v2 用两个 `ListPage` 串联或等后续 `MultiTypeListPage`。
+- Compose 真实接入——`ComposablePage` 是 stub，落地放在 `:foundations:assemblekit-compose`（单独模块，便于不引 Compose 的工程零成本继续用 ViewPage）。
+
 ### 2. 依赖边界校验
 
 `./gradlew checkDependencyRules` 遍历所有子模块的声明依赖（`api` / `implementation` / `compileOnly` / `runtimeOnly` / `testImplementation` / `androidTestImplementation` / `debugImplementation` / `releaseImplementation`），按规则表逐项校验，违反即抛 `GradleException` 并列出所有违规边。
@@ -212,15 +361,33 @@ class LoginActivity : PageHostActivity() {
 
 `tools/affected-modules/affected_modules.py --base main` 通过 `git diff` 找出变更文件、映射到模块、再借助反向依赖图找出所有受影响模块，输出 `changedModules` / `affectedModules` / `suggestedGradleTasks`。CI 拿到这份 JSON 后只需要对 `affectedModules` 执行编译/单测即可，无需全量构建。
 
+### 5. 文档同步契约（docs-sync）
+
+工程治理的最后一公里是**避免代码与文档脱节**。规则与执行：
+
+- **入口**：[`AGENTS.md` § Rule 0](../AGENTS.md#rule-0-docs-sync-contract-mandatory) 给 AI agent + 人类的工作规则
+- **声明式映射**：[`tools/docs-sync/docs-sync-rules.json`](../tools/docs-sync/docs-sync-rules.json) 8 条规则，每条声明"触发路径 → 必须同步的 md"
+- **人类详述版**：[`docs/doc-sync-rules.md`](doc-sync-rules.md) 每条规则的理由 / 失败例 / 豁免方式
+- **校验器**：[`tools/docs-sync/check_docs_sync.py`](../tools/docs-sync/check_docs_sync.py) 与 `affected_modules.py` 同款风格（pure stdlib + git diff + JSON 输出），支持 `--strict`（CI）和默认 warn-only（本地）
+- **本地钩子**：`bash tools/docs-sync/install-hooks.sh` 装一个**只 warn 不阻断**的 post-commit hook
+- **逃生舱**：commit message 中 `[docs-skip]` 或 `[docs-skip:R3-new-module]`，但必须在 PR 描述里写清理由
+
+逻辑非常朴素：变更集 = `git diff --name-only base...HEAD ∪ 当前工作区`；对每条规则，若 `triggers` 命中而 `requires_*` 没人改，就报违规。`diff_must_contain` 字段用来做"二阶过滤"——比如 `settings.gradle.kts` 只有真改了 `include(...)` 才算"新增模块"，避免误报。
+
+> 跟 `checkDependencyRules` 一样，这条规则也是**机械检查**：写规则的人付一次成本，所有后来者自动受益；新规则的添加流程见 [`docs/doc-sync-rules.md` § 规则本身怎么演化](doc-sync-rules.md#规则本身怎么演化)。
+
 ## 目录结构
 
 ```
 monorepo-demo/
+├── AGENTS.md                   # Agent / 人类工作规则（R0 docs-sync 契约）
 ├── app/                        # 应用壳
 ├── features/                   # 业务 feature
-│   ├── login/
-│   ├── home/
-│   └── profile/
+│   ├── login/                  # 经典 assemble { } 三段式（v1 标准案例）
+│   ├── home/                   # SPI 演示 + Router 入口（含 "Open Feed"）
+│   ├── profile/
+│   └── feed/                   # AssembleKit v2 综合演示：
+│                               #   ListPage + provides/consume + at() + replace
 ├── bizlibs/                    # 业务库
 │   ├── account/
 │   └── user/
@@ -233,15 +400,23 @@ monorepo-demo/
 │   ├── ui/
 │   ├── communicate/            # SPI：跨层反向通信（feature/bizlib ← app）
 │   └── assemblekit/            # Page / Assembly DSL + Mavericks MVI 集成
+│                               # v2: ViewPage / ComposablePage (stub) / ListPage
+│                               #     + scoped locals (provides/consume)
+│                               #     + per-page at(R.id) + Assembly.replace { }
 ├── third-party/                # 三方 / 适配
 │   └── logger/
 ├── build-logic/                # Convention plugins（独立 included build）
 │   └── convention/
 ├── tools/
-│   └── affected-modules/affected_modules.py
+│   ├── affected-modules/affected_modules.py   # 增量构建影响范围分析
+│   └── docs-sync/                              # 代码 → 文档 同步校验（R0）
+│       ├── docs-sync-rules.json
+│       ├── check_docs_sync.py
+│       └── install-hooks.sh
 ├── docs/
 │   ├── architecture.md
 │   ├── module-rules.md
-│   ├── dependency-graph.{json,dot,html}   # 由 Gradle 任务生成
-└── .github/workflows/ci.yml    # CI：边界校验 + 依赖图 + assembleDebug
+│   ├── doc-sync-rules.md                       # R0 人类详述版
+│   ├── dependency-graph.{json,dot,html}        # 由 Gradle 任务生成
+└── .github/workflows/ci.yml    # CI：docs sync + 边界校验 + 依赖图 + assembleDebug
 ```

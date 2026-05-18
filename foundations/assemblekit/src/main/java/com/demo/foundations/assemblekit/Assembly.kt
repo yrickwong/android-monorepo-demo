@@ -9,8 +9,10 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.lifecycleScope
 import com.demo.foundations.assemblekit.bus.ScopedCommandBus
 import com.demo.foundations.assemblekit.bus.ScopedEventBus
+import com.demo.foundations.assemblekit.local.ScopedContainer
 import com.demo.thirdparty.logger.Logger
 import kotlinx.coroutines.CoroutineScope
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The unit of "things that ship together on one screen".
@@ -32,7 +34,20 @@ import kotlinx.coroutines.CoroutineScope
  */
 class Assembly internal constructor(
     val host: PageHost,
-    val container: ViewGroup,
+    /**
+     * Default container used by any Page that does NOT use the
+     * `at(R.id.…)` DSL to pin itself onto a specific slot.
+     *
+     * Two valid configurations:
+     *  - `container` set, no `at(...)` calls — classic stack-into-one-box.
+     *  - `container = null`, every Page uses `at(...)` — multi-slot layout.
+     *
+     * Mixing is fine: pinned Pages mount where they ask, the rest stack
+     * into the default container. If a Page has neither and there's no
+     * default, attach throws at install time with a pointer to both
+     * fixes.
+     */
+    val container: ViewGroup?,
     /**
      * Direction in which Page views are stacked when [container] is a
      * [LinearLayout]. Ignored for `FrameLayout` / `ConstraintLayout`-style
@@ -55,26 +70,47 @@ class Assembly internal constructor(
     // Buses
     // ------------------------------------------------------------------
 
-    private val assemblyId: String =
-        "asm-${host.hostId}-${container.id.takeIf { it != View.NO_ID } ?: container.hashCode()}"
+    private val assemblyId: String = run {
+        val c = container
+        val tag = when {
+            c == null -> "noDefaultContainer-${ASSEMBLY_COUNTER.incrementAndGet()}"
+            c.id != View.NO_ID -> c.id.toString()
+            else -> c.hashCode().toString()
+        }
+        "asm-${host.hostId}-$tag"
+    }
 
     val bus: ScopedEventBus = ScopedEventBus(tag = "AssemblyBus($assemblyId)")
     val commands: ScopedCommandBus = ScopedCommandBus(tag = "AssemblyCmd($assemblyId)")
+
+    /**
+     * Assembly-level "locals" container. Chained to [PageHost.hostLocal]
+     * as its parent so anything provided on the host is visible here
+     * (and to every page underneath) via [ScopedContainer.resolve].
+     *
+     * Populated by the `provides(key, value)` calls inside the
+     * `assemble {}` DSL block; pages can read via `consume(key)`.
+     */
+    val assemblyLocal: ScopedContainer =
+        ScopedContainer.child(parent = host.hostLocal, debugName = "asmLocal($assemblyId)")
 
     // ------------------------------------------------------------------
     // Pages
     // ------------------------------------------------------------------
 
-    private val pages = mutableListOf<Page>()
+    private val specs = mutableListOf<MountSpec>()
     private val attached = mutableListOf<Page>()
+    // Remember which ViewGroup we mounted each page into, so replace() can
+    // remove the exact view from the exact slot even when slots differ.
+    private val pageMountTargets = mutableMapOf<Page, ViewGroup>()
     private var installed = false
 
     /** Read-only snapshot of attached pages, in declaration order. */
     val pagesSnapshot: List<Page> get() = attached.toList()
 
-    internal fun add(page: Page) {
+    internal fun add(spec: MountSpec) {
         check(!installed) { "Cannot add Page to an already-installed Assembly. Use replace { ... }." }
-        pages += page
+        specs += spec
     }
 
     /**
@@ -102,18 +138,25 @@ class Assembly internal constructor(
             },
         )
 
-        pages.forEachIndexed { index, page ->
-            attachPage(page, index)
+        specs.forEachIndexed { index, spec ->
+            attachPage(spec, index)
         }
     }
 
-    private fun attachPage(page: Page, index: Int) {
+    private fun attachPage(spec: MountSpec, index: Int) {
+        val page = spec.page
+        val mountTarget = spec.resolveContainer(host, container)
         val pageId = derivePageId(page, index)
         // Each page gets its own bus + its own coroutine scope derived from
         // the assembly scope, so we can later add "swap one page" semantics
         // without leaking subscribers from the replaced page.
         val pageBus = ScopedEventBus(tag = "PageBus($pageId)")
         val pageCommands = ScopedCommandBus(tag = "PageCmd($pageId)")
+
+        // Each Page gets its own local container, chained to the assembly's
+        // (which is itself chained to the host's). Lookups walk this chain
+        // automatically via ScopedContainer.resolve.
+        val pageLocal = ScopedContainer.child(parent = assemblyLocal, debugName = "pageLocal($pageId)")
 
         val ctx = PageContext(
             host = host,
@@ -130,24 +173,117 @@ class Assembly internal constructor(
             pageCommands = pageCommands,
             assemblyCommands = commands,
             hostCommands = host.hostCommands,
+            pageLocal = pageLocal,
+            assemblyLocal = assemblyLocal,
+            hostLocal = host.hostLocal,
             hostViewModelStoreOwner = host,
         )
 
         try {
-            val view = page.performAttach(ctx, container)
-            container.addView(view, defaultLayoutParams())
+            val view = page.performAttach(ctx, mountTarget)
+            mountTarget.addView(view, defaultLayoutParams(mountTarget))
             attached += page
-            Logger.d(LOG_TAG, "[$assemblyId] attached page #$index id=$pageId")
+            pageMountTargets[page] = mountTarget
+            Logger.d(
+                LOG_TAG,
+                "[$assemblyId] attached page #$index id=$pageId into ${describe(mountTarget)}",
+            )
         } catch (t: Throwable) {
             Logger.e(LOG_TAG, "[$assemblyId] failed to attach page #$index: ${t.message}")
             throw t
         }
     }
 
+    // ------------------------------------------------------------------
+    // Recomposition: host-driven structural change.
+    // ------------------------------------------------------------------
+
+    /**
+     * Tear down every currently-attached Page and re-install the
+     * composition declared in [block]. The host's own lifecycle, scope,
+     * ViewModelStore, and [hostLocal] / [hostBus] are **not** affected;
+     * only this Assembly's pages and its [assemblyLocal] entries are.
+     *
+     * Why this lives on Assembly (and is callable only by the Host):
+     *  - Page does not, and intentionally cannot, reach the Assembly
+     *    instance — Pages aren't allowed to swap their siblings out from
+     *    under each other. Letting them mutate composition turns the
+     *    "page is a small UI slice" contract into "page is a router",
+     *    which is exactly the Fragment trap AssembleKit exists to avoid.
+     *  - The host already owns the decision of "what is on screen right
+     *    now" via its lifecycle + the initial `assemble {}` block.
+     *    `replace` is the second entry point of that same decision tree:
+     *    "from this event onward, the screen looks like THIS instead".
+     *
+     * Typical use: Activity listens for an event on `hostBus` and reacts
+     * by reshaping its assembly.
+     *
+     * ```kotlin
+     * // inside LoginActivity, e.g. after credentials succeed:
+     * hostBus.on<LoginEvent.LoginFinished>(lifecycleScope) {
+     *     loginAssembly.replace {
+     *         +SuccessHeaderPage() at R.id.slot_header
+     *         +ContinueButtonPage() at R.id.slot_bottom
+     *     }
+     * }
+     * ```
+     *
+     * Trade-offs:
+     *  - ViewModels of removed Pages remain in the host's ViewModelStore
+     *    until the host is destroyed. For long-lived assemblies this is
+     *    rarely a leak; for short-lived bottom-sheets it can grow. A
+     *    future `Assembly.dispose()` will evict eagerly.
+     *  - assemblyLocal entries are wiped before the new block runs, so
+     *    the new composition starts from "whatever the host provided"
+     *    plus its own provides. This is the predictable choice — if you
+     *    want a value to survive a replace, put it on hostLocal.
+     */
+    fun replace(block: AssemblyBuilder.() -> Unit) {
+        check(installed) {
+            "Assembly.replace() called before initial install — " +
+                "use assemble { … } for the first composition."
+        }
+
+        // Tear down current pages in reverse declaration order so any
+        // sibling dependencies unwind cleanly.
+        for (page in attached.asReversed()) {
+            val mountTarget = pageMountTargets[page]
+            val view = page.view
+            if (view != null && mountTarget != null) {
+                try {
+                    mountTarget.removeView(view)
+                } catch (t: Throwable) {
+                    Logger.w(LOG_TAG, "[$assemblyId] removeView during replace failed: ${t.message}")
+                }
+            }
+            try {
+                page.performDetach()
+            } catch (t: Throwable) {
+                Logger.w(LOG_TAG, "[$assemblyId] performDetach during replace failed: ${t.message}")
+            }
+        }
+        attached.clear()
+        pageMountTargets.clear()
+
+        // Fresh provides surface for the new composition; hostLocal is
+        // untouched so anything the host wired stays visible.
+        assemblyLocal.clearLocalEntries()
+
+        // Re-collect specs from the new builder block, then re-attach.
+        specs.clear()
+        AssemblyBuilder(this).block()
+        val newSpecs = specs.toList()
+        newSpecs.forEachIndexed { index, spec ->
+            attachPage(spec, index)
+        }
+
+        Logger.d(LOG_TAG, "[$assemblyId] replaced composition (${newSpecs.size} pages)")
+    }
+
     private fun derivePageId(page: Page, index: Int): String =
         "${host.hostId}::${page.javaClass.simpleName}#$index"
 
-    private fun defaultLayoutParams(): ViewGroup.LayoutParams = when (container) {
+    private fun defaultLayoutParams(target: ViewGroup): ViewGroup.LayoutParams = when (target) {
         is LinearLayout -> LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -158,8 +294,13 @@ class Assembly internal constructor(
         )
     }
 
+    private fun describe(v: ViewGroup): String =
+        if (v.id != View.NO_ID) "${v.javaClass.simpleName}(#${Integer.toHexString(v.id)})"
+        else v.javaClass.simpleName
+
     companion object {
         private const val LOG_TAG = "Assembly"
+        private val ASSEMBLY_COUNTER = AtomicInteger(0)
     }
 }
 

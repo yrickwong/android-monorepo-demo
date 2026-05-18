@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history for affected-modules / git diff
+          fetch-depth: 0  # full history for affected-modules / docs-sync / git diff
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -26,8 +26,27 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Set up Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Make gradlew executable
         run: chmod +x ./gradlew
+
+      # 0. Enforce the docs-sync contract (AGENTS.md § Rule 0).
+      #    Runs first: cheap, surfaces design/doc drift before we waste
+      #    minutes on a build. Rules live in tools/docs-sync/docs-sync-rules.json.
+      - name: Check docs sync
+        run: |
+          # On PRs, diff against the merge base; on push to main, diff against HEAD~1.
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            BASE="origin/$GITHUB_BASE_REF"
+            git fetch --no-tags --depth=50 origin "$GITHUB_BASE_REF" || true
+          else
+            BASE="HEAD~1"
+          fi
+          python3 tools/docs-sync/check_docs_sync.py --base "$BASE" --strict
 
       # 1. Enforce architecture layer boundaries.
       - name: Check dependency rules

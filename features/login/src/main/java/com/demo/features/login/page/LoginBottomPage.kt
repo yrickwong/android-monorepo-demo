@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import com.demo.features.login.LoginEvent
 import com.demo.features.login.databinding.LoginPageBottomBinding
-import com.demo.foundations.assemblekit.Page
+import com.demo.foundations.assemblekit.ViewPage
 
 /**
  * The "all I do is glow on click" Page. Demonstrates a Page that owns
@@ -24,7 +24,7 @@ import com.demo.foundations.assemblekit.Page
  * swappable: a future "biometric login" Page can plug in next to
  * Bottom without either of them touching the other.
  */
-internal class LoginBottomPage : Page() {
+internal class LoginBottomPage : ViewPage() {
 
     private var binding: LoginPageBottomBinding? = null
 

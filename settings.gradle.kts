@@ -30,6 +30,7 @@ include(":app")
 include(":features:login")
 include(":features:home")
 include(":features:profile")
+include(":features:feed")
 
 // :bizlibs:*
 include(":bizlibs:account")

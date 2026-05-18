@@ -1,6 +1,8 @@
 # 模块依赖规则
 
 > 校验由 `./gradlew checkDependencyRules` 强制执行（实现：`build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/CheckDependencyRulesTask.kt`）。违反任意一条规则都会让构建失败。
+>
+> 这是工程的"分层契约"。它与 [`AGENTS.md` § Rule 1](../AGENTS.md#rule-1-layered-module-boundaries) 同源；修改本文件的同时通常也要修改 `CheckDependencyRulesTask.kt`，反之亦然（[docs-sync R2](doc-sync-rules.md#r2--dependency-rule-task-changes-must-update-module-rulesmd)）。
 
 ## 规则总览
 
@@ -118,9 +120,14 @@ dependencies {
 | 边 | 解释 |
 | --- | --- |
 | `:features:login → :foundations:assemblekit` | feature → foundation，规则允许 |
+| `:features:feed  → :foundations:assemblekit` | 同上：feed 作为 AssembleKit v2 综合 demo，依赖框架核心 |
 | `:foundations:assemblekit → :foundations:common` | foundation 内部互相依赖，允许 |
 | `:foundations:assemblekit → :third-party:logger`  | foundation → third-party，允许 |
+| `:foundations:assemblekit → androidx.recyclerview` | 第三方库，外部依赖（不在分层校验范围） |
 | `:app → :foundations:assemblekit` | app 是组合根，可以依赖任何模块 |
+| `:app → :features:feed` | app 是唯一允许依赖 `:features:*` 的模块 |
+
+> `:features:home` 上加 `Open Feed` 按钮时**不需要**依赖 `:features:feed`——通过 `Router.navigate(this, Router.Paths.FEED)` 跳转，跨 feature 跳转一律走路由层，这是 `checkDependencyRules` 仍然 OK 的关键。
 
 新增 foundation 模块时，按上面这几条对照即可——既不需要改 `CheckDependencyRulesTask`，也不需要在这份文档里追加新规则。
 

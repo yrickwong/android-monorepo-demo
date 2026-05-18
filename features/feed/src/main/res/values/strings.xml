@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_title">Feed</string>
+    <string name="feed_subtitle">Demo: ListPage + provides/consume + at()/replace</string>
+    <string name="feed_refresh">Refresh</string>
+    <string name="feed_toggle_banner">Toggle banner</string>
+    <string name="feed_banner_text">Promo banner (added via Assembly.replace)</string>
+    <string name="feed_footer_count">Loaded %1$d notes</string>
+    <string name="feed_footer_loading">Refreshing…</string>
+    <string name="feed_footer_error">Failed to load</string>
+    <string name="feed_empty">No notes yet</string>
+</resources>
