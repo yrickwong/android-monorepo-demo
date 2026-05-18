@@ -1,0 +1,19 @@
+gradle/libs.versions.toml
+  s_bcf32155885fc6::t_d3b323f8eddd4c 11-13,28-29,32-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "6eac70277b1fe7a99bc4cbcc8d3c0438fb391150",
+  "prompts": {},
+  "sessions": {
+    "s_bcf32155885fc6": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "75761c49-bd33-46fe-a4f2-87e7745d1fd0",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
