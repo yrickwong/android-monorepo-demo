@@ -1,0 +1,30 @@
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt
+  s_e696ad8fc4a57b::t_e5da01d8a11751 245-249
+  s_e696ad8fc4a57b::t_c88d05e6ca53f6 224-230
+docs/architecture.md
+  s_e696ad8fc4a57b::t_885ebb68c622e3 216
+  s_e696ad8fc4a57b::t_f4dd942bff2617 343-372
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewTreePageContext.kt
+  s_e696ad8fc4a57b::t_de5d4688c50830 1-97
+foundations/assemblekit/src/main/res/values/ids.xml
+  s_e696ad8fc4a57b::t_beb9249ff22107 1-13
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt
+  s_e696ad8fc4a57b::t_58d823eb7bbba2 12
+  s_e696ad8fc4a57b::t_71fc1dfd7efb62 121-130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "619fac5221338eab1abaa69973b5497252bd156a",
+  "prompts": {},
+  "sessions": {
+    "s_e696ad8fc4a57b": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "7d1eedc1-3760-4e1d-90e7-95a1121a5eec",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
