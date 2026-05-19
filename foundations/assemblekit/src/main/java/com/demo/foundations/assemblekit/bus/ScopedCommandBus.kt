@@ -9,29 +9,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Request-response counterpart to [ScopedEventBus].
+ * [ScopedEventBus] 的 request-response 对应物。
  *
- * Use this when one Page needs to *ask* another for a value (or wait for a
- * confirmation) rather than just broadcasting an event. Example: the header
- * Page asks the body Page to validate its form and return a boolean result.
+ * 当一个 Page 需要*向*另一个 Page 询问一个值（或者等待一个确认结果），
+ * 而不是只想广播一条事件时，请用这个。例子：header Page 向 body Page 询问
+ * 表单是否校验通过，并拿一个 boolean 结果回来。
  *
- * Semantics:
- *  - Multiple responders for the same [Cmd] type are allowed but only the
- *    first one to answer wins (the others' answers are dropped). In
- *    practice one type → one responder is the recommended pattern.
- *  - If no responder is registered when [request] is called, the request
- *    hangs until either a responder appears or the timeout fires.
- *  - All deliveries happen on the responder's [CoroutineScope]; when that
- *    scope cancels the subscription is torn down.
+ * 语义：
+ *  - 同一种 [Cmd] 类型允许有多个 responder，但只有第一个返回的胜出
+ *    （其他人的结果会被丢弃）。实际推荐"一种类型 → 一个 responder"。
+ *  - 调 [request] 时如果没有任何 responder 注册，请求会一直挂着，
+ *    直到出现 responder 或者触发超时。
+ *  - 所有投递都在 responder 自己的 [CoroutineScope] 上执行；scope 被取消时
+ *    订阅会被拆除。
  *
- * @param tag debug tag, e.g. `"AssemblyCmd(login)"`.
+ * @param tag debug tag，比如 `"AssemblyCmd(login)"`。
  */
 class ScopedCommandBus(private val tag: String) {
 
     /**
-     * `replay = 0` keeps semantics aligned with [ScopedEventBus] — late
-     * subscribers do not see past requests. Buffer of 64 protects against
-     * accidental floods.
+     * `replay = 0` 保持与 [ScopedEventBus] 一致的语义——晚到的订阅者看不到
+     * 之前的请求。buffer = 64 防意外洪泛。
      */
     private val flow = MutableSharedFlow<Envelope>(
         replay = 0,
@@ -39,8 +37,8 @@ class ScopedCommandBus(private val tag: String) {
     )
 
     /**
-     * Register a responder for command type [Cmd]. The responder runs on
-     * [collectScope] and is unregistered when [collectScope] is cancelled.
+     * 给命令类型 [Cmd] 注册一个 responder。responder 跑在 [collectScope] 上，
+     * [collectScope] 被取消时自动反注册。
      */
     inline fun <reified Cmd : Any, Resp : Any?> respond(
         collectScope: CoroutineScope,
@@ -60,8 +58,8 @@ class ScopedCommandBus(private val tag: String) {
     }
 
     /**
-     * Send [cmd] and suspend until a registered responder returns. Returns
-     * `null` if [timeoutMillis] elapses with no answer.
+     * 发送 [cmd] 并挂起，直到某个已注册的 responder 返回结果。
+     * 超过 [timeoutMillis] 仍然无人应答则返回 `null`。
      */
     suspend fun <Resp> request(cmd: Any, timeoutMillis: Long = DEFAULT_TIMEOUT_MS): Resp? {
         val deferred = CompletableDeferred<Any?>()

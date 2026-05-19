@@ -18,34 +18,29 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 
 /**
- * A single, lightweight UI slice that knows how to materialise itself,
- * hook up a Mavericks ViewModel, and talk to its siblings via scoped buses.
+ * 单个、轻量级的 UI 切片：知道如何把自己具象化成 View，挂接 Mavericks ViewModel，
+ * 并通过 scoped bus 与兄弟 Page 通信。
  *
- * `Page` is intentionally **abstract over the rendering mechanism** — the
- * actual "produce a View" contract lives on the concrete subtypes:
+ * `Page` 刻意**对渲染机制保持抽象**——真正"生产 View"的契约由具体子类型实现：
  *
- *  - [ViewPage]      — classic XML / inflated View layer (default today)
- *  - [AsyncViewPage] — same as ViewPage but inflated off the main thread
- *                      via `AsyncLayoutInflater`
- *  - `ComposablePage` — Jetpack Compose payload, lives in the sibling
- *                      artifact `:foundations:assemblekit-compose`
- *                      (so consumers that never use Compose don't pay
- *                      the Compose toolchain cost). KDoc cannot @link
- *                      across modules so this one is intentionally a
- *                      bare reference.
+ *  - [ViewPage]       —— 经典 XML / inflate 出来的 View（目前默认）
+ *  - [AsyncViewPage]  —— 同 ViewPage，但通过 `AsyncLayoutInflater` 在非主线程 inflate
+ *  - `ComposablePage` —— Jetpack Compose 载荷，位于姊妹模块
+ *                       `:foundations:assemblekit-compose`（这样不使用 Compose 的
+ *                       下游不必为 Compose 工具链付出代价）。KDoc 无法跨模块 @link，
+ *                       所以这里特意写成纯文本引用。
  *
- * Everything below — lifecycle, savedstate, buses, Mavericks ViewModel
- * delegate, host bridging — is identical for all three flavours.
+ * 下面所有东西——生命周期、savedstate、bus、Mavericks ViewModel 委托、宿主桥接——
+ * 在三种子类型里都是一样的。
  *
- * Why not just use a Fragment?
- *  - Pages don't go on the back stack. There is no FragmentManager, no
- *    transactions, no commit-now-or-later distinction.
- *  - Pages don't double-bookkeep state. Configuration changes are
- *    handled entirely through Mavericks (`@PersistState` etc.).
- *  - Pages can be constructed directly with `new` in unit tests; you
- *    only need a fake [PageContext] to exercise the wiring.
+ * 为什么不直接用 Fragment？
+ *  - Page 不上回退栈。没有 FragmentManager、没有 transaction、没有 commit-now / commit-later
+ *    这种区分。
+ *  - Page 不会重复记账状态。配置变更完全交给 Mavericks 处理（`@PersistState` 等）。
+ *  - Page 在单元测试里可以直接 `new` 出来；你只需要一个假的 [PageContext] 就能驱动
+ *    整套接线。
  *
- * Lifecycle model:
+ * 生命周期模型：
  *
  *  ```
  *  attach(ctx)     -> Lifecycle.State.CREATED
@@ -54,21 +49,20 @@ import kotlinx.coroutines.Job
  *  hostResume      -> RESUMED
  *  hostPause       -> STARTED
  *  hostStop        -> CREATED
- *  detach          -> DESTROYED   (pageScope cancelled, buses unreachable)
+ *  detach          -> DESTROYED   (pageScope 被取消、bus 不可达)
  *  ```
  */
 abstract class Page(
     /**
-     * Optional explicit id. If null, an id is auto-generated from the
-     * class name plus the assembly slot index. Provide an explicit id
-     * when you need a stable Mavericks ViewModel across config changes
-     * even when the page order changes.
+     * 可选的显式 id。如果传 null，会从类名 + 在 assembly 里的槽位序号自动生成。
+     * 只有当 Page 顺序变化时仍想保留同一个 Mavericks ViewModel 跨配置变更存活，
+     * 才需要传入显式 id。
      */
     private val explicitId: String? = null,
 ) : LifecycleOwner, SavedStateRegistryOwner, MavericksView {
 
     // ------------------------------------------------------------------
-    // Lifecycle / SavedState
+    // 生命周期 / SavedState
     // ------------------------------------------------------------------
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -78,44 +72,42 @@ abstract class Page(
     override val savedStateRegistry: SavedStateRegistry get() = savedStateController.savedStateRegistry
 
     // ------------------------------------------------------------------
-    // Context / identity
+    // 上下文 / 身份
     // ------------------------------------------------------------------
 
     /**
-     * The environment object handed in by the framework at [performAttach].
-     * Accessing it before attach throws — by design: subclasses should
-     * not assume an environment until [materialize] runs.
+     * 框架在 [performAttach] 时塞进来的环境对象。
+     * attach 之前访问会抛——这是有意为之：子类在 [materialize] 跑起来之前不应假设
+     * 环境已经就绪。
      */
     protected lateinit var context: PageContext
         private set
 
-    /** Stable id, unique within the parent [Assembly]. */
+    /** 稳定 id，在所属 [Assembly] 内唯一。 */
     val pageId: String get() = if (::context.isInitialized) context.pageId else fallbackId()
 
     /**
-     * Friend-style accessor for framework-internal helpers (e.g. the
-     * `pageViewModel()` delegate) that need to reach the host without
-     * exposing the `protected context` to outside callers.
+     * 给框架内部辅助代码（比如 `pageViewModel()` 委托）用的 friend 风格访问器：
+     * 既能拿到 host，又不必把 `protected context` 暴露给外部调用者。
      */
     @PublishedApi
     internal fun hostOrNullInternal(): PageHost? =
         if (::context.isInitialized) context.host else null
 
-    /** Mavericks uses this to scope state subscriptions. */
+    /** Mavericks 用这个值来界定状态订阅的作用域。 */
     final override val mvrxViewId: String get() = pageId
 
     /**
-     * We deliberately *do not* use Mavericks' `invalidate()` pattern.
-     * All state subscriptions should be expressed with `onEach` /
-     * `onAsync` selectors, which are both more precise and more
-     * efficient (no full re-render for unrelated state changes).
+     * 我们刻意**不使用** Mavericks 的 `invalidate()` 模式。
+     * 所有状态订阅都应通过 `onEach` / `onAsync` 选择器表达——既更精确，
+     * 也更高效（无关状态变化不会触发整页重绘）。
      */
     final override fun invalidate(): Unit = Unit
 
     private fun fallbackId(): String = explicitId ?: "${javaClass.simpleName}@${hashCode()}"
 
     // ------------------------------------------------------------------
-    // Convenience scopes / buses (only valid after attach)
+    // 便捷 scope / bus 访问（仅在 attach 之后有效）
     // ------------------------------------------------------------------
 
     protected val pageScope: CoroutineScope     get() = context.pageScope
@@ -123,105 +115,99 @@ abstract class Page(
     protected val hostScope: CoroutineScope     get() = context.hostScope
 
     // ------------------------------------------------------------------
-    // Subclass extension points
+    // 子类扩展点
     // ------------------------------------------------------------------
 
     /**
-     * Produce the root [View] for this Page. Called once, between
-     * `ON_CREATE` and the host's first `ON_START` event.
+     * 生产本 Page 的根 [View]。在 `ON_CREATE` 与宿主第一次 `ON_START` 之间被调用一次。
      *
-     * Concrete subtypes implement this:
-     *  - [ViewPage] inflates XML and runs `onCreateView` + `onViewCreated`
-     *  - `ComposablePage` (in `:foundations:assemblekit-compose`) wraps a
-     *    `Content()` composable in a `ComposeView`
+     * 由具体子类型实现：
+     *  - [ViewPage] inflate XML 并依次跑 `onCreateView` + `onViewCreated`
+     *  - `ComposablePage`（位于 `:foundations:assemblekit-compose`）把一个
+     *    `Content()` 可组合函数包进 `ComposeView`
      *
-     * The returned View is added to the assembly container by the framework;
-     * subclasses must **not** add it themselves.
+     * 返回的 View 由框架挂到 assembly 容器上；子类**不要**自己再 add 一遍。
      *
-     * **Visibility:** `protected` so subtypes in sibling Gradle modules
-     * (notably `:foundations:assemblekit-compose`) can `override` it.
-     * Kotlin `internal` would have been preferable for "framework only"
-     * intent, but it is enforced at the Kotlin-module boundary —
-     * separate Gradle modules cannot override `internal` declarations.
-     * Restricting to `protected` still keeps the method invisible to
-     * product code (you must be inside a `Page` subclass to call it),
-     * which is the practical guarantee we need.
+     * **可见性说明：** 用 `protected` 是为了让兄弟 Gradle 模块（特别是
+     * `:foundations:assemblekit-compose`）能 `override` 它。
+     * Kotlin 的 `internal` 在"仅限框架内部"这层语义上更合适，但它是按
+     * Kotlin module 边界强制的——不同 Gradle 模块无法 override `internal` 声明。
+     * 退而求其次的 `protected` 仍能保证业务代码看不到该方法（必须身处某个 `Page`
+     * 子类里才能调用它），这就是我们实际需要的保证。
      */
     protected abstract fun materialize(inflater: LayoutInflater, parent: ViewGroup): View
 
     /**
-     * Generic teardown hook. Called after the View is detached and right
-     * before [Lifecycle.State.DESTROYED]. [ViewPage] funnels its own
-     * `onDestroyView` through here; subclasses with other resources
-     * (Compose disposables, native handles, …) can override directly.
+     * 通用析构钩子。在 View 已经 detach、即将进入 [Lifecycle.State.DESTROYED] 之前调用。
+     * [ViewPage] 会把自己的 `onDestroyView` 汇流到这里；持有其它资源（Compose
+     * disposable、native 句柄……）的子类可以直接 override。
      */
     protected open fun onDestroy(): Unit = Unit
 
     // ------------------------------------------------------------------
-    // Event / command helpers
+    // Event / command 辅助
     // ------------------------------------------------------------------
 
-    /** Listen on the page's own bus (intra-page events). Auto-cancelled on detach. */
+    /** 监听本 Page 自己的 bus（页内事件）。detach 时自动取消。 */
     protected inline fun <reified E : Any> onPageEvent(
         noinline block: suspend (E) -> Unit,
     ): Job = context.pageBus.on(pageScope, block)
 
-    /** Listen on the parent [Assembly]'s bus (sibling-page events). */
+    /** 监听所属 [Assembly] 的 bus（兄弟 Page 之间的事件）。 */
     protected inline fun <reified E : Any> onAssemblyEvent(
         noinline block: suspend (E) -> Unit,
     ): Job = context.assemblyBus.on(pageScope, block)
 
-    /** Listen on the host's bus (Activity/Fragment-wide events). */
+    /** 监听宿主的 bus（Activity / Fragment 全局事件）。 */
     protected inline fun <reified E : Any> onHostEvent(
         noinline block: suspend (E) -> Unit,
     ): Job = context.hostBus.on(pageScope, block)
 
-    /** Publish to siblings inside the same Assembly. */
+    /** 向同一 Assembly 里的兄弟 Page 广播。 */
     protected fun emitToAssembly(event: Any): Boolean = context.assemblyBus.emit(event)
 
-    /** Publish to the host (Activity/Fragment-wide). */
+    /** 向宿主广播（Activity / Fragment 全局）。 */
     protected fun emitToHost(event: Any): Boolean = context.hostBus.emit(event)
 
     // ------------------------------------------------------------------
-    // Scoped locals (provides / consume)
+    // Scoped locals（provides / consume）
     // ------------------------------------------------------------------
 
     /**
-     * Resolve a value provided anywhere in the page→assembly→host chain.
-     * Returns `null` if no scope provides this key. Equivalent to
-     * `context.consume(key)`; the inline-friendly shortcut lives here
-     * so subclasses don't need to reach into `context`.
+     * 解析 page→assembly→host 链路上任何一层 provide 过的值。
+     * 若全部 scope 都没 provide 这个 key 则返回 `null`。等价于
+     * `context.consume(key)`；这里加一个 inline 友好的快捷方法，
+     * 让子类不用再去捅 `context`。
      */
     protected fun <T> consume(key: PageContextKey<T>): T? = context.consume(key)
 
-    /** Like [consume] but throws if the key was never provided. */
+    /** 同 [consume]，但 key 从未被 provide 过时会抛异常。 */
     protected fun <T> requireConsume(key: PageContextKey<T>): T = context.requireConsume(key)
 
     /**
-     * Provide a value visible **only to this Page** (and to any nested
-     * consumers it explicitly hands its [PageContext] to, e.g. items in
-     * a `ListPage`). Shadowing the parent for one page is a common need
-     * — e.g. a "preview" Page wanting to use a fake repository while
-     * sibling Pages still see the real one.
+     * Provide 一个**只有本 Page 可见**的值（以及该 Page 显式把自己的 [PageContext]
+     * 传下去的嵌套消费者，比如 `ListPage` 里的 item）。"只为单个 Page 遮蔽父级"
+     * 是一种常见需求——比如某个"预览"Page 想用一个假 repository，而兄弟 Page 仍能
+     * 看到真 repository。
      *
-     * For framework-wide or screen-wide provides, do it from the
-     * `assemble {}` DSL or from the host's `hostLocal[...] = …` setter.
+     * 框架级或屏幕级的 provide，应该走 `assemble {}` DSL 或宿主的
+     * `hostLocal[...] = …` setter。
      */
     protected fun <T> providesPage(key: PageContextKey<T>, value: T) {
         context.pageLocal[key] = value
     }
 
     // ------------------------------------------------------------------
-    // Framework-only entry points (called by Assembly)
+    // 框架内部入口（由 Assembly 调用）
     // ------------------------------------------------------------------
 
     internal var view: View? = null
         private set
 
     /**
-     * Reference to the host-lifecycle observer registered in [bridgeHostLifecycle],
-     * kept so [performDetach] can unregister it. Without this we'd leak one
-     * observer per page every time [Assembly.replace] swaps the composition.
+     * 指向 [bridgeHostLifecycle] 里注册的宿主生命周期 observer 引用，
+     * 留着给 [performDetach] 反注册用。否则每次 [Assembly.replace] 重组都会泄漏
+     * 一个 observer。
      */
     private var hostObserver: LifecycleEventObserver? = null
 
@@ -229,24 +215,22 @@ abstract class Page(
         require(!::context.isInitialized) { "Page $pageId already attached" }
         context = ctx
 
-        // SavedStateRegistry must be restored before any consumer reads it.
-        savedStateController.performRestore(null /* savedInstanceState handled by host */)
+        // SavedStateRegistry 必须在任何消费者读取它之前被 restore。
+        savedStateController.performRestore(null /* savedInstanceState 由宿主统一处理 */)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
 
         val inflater = LayoutInflater.from(parent.context)
         val created = materialize(inflater, parent)
         view = created
 
-        // Stamp the View tree so any descendant (custom view, nested
-        // RecyclerView's inner ViewHolder, etc.) can resolve the
-        // current PageContext via `view.findPageContext()` without
-        // taking it as a constructor / setter parameter. The contract
-        // mirrors AndroidX' ViewTreeLifecycleOwner pattern.
+        // 给 View 树打上 PageContext 戳，这样任何后代（自定义 View、嵌套 RecyclerView 内层
+        // ViewHolder 等）都可以通过 `view.findPageContext()` 拿到当前 PageContext，
+        // 而不必把它当成构造函数 / setter 参数往下传。契约对齐 AndroidX 的
+        // ViewTreeLifecycleOwner 模式。
         created.setPageContext(ctx)
 
-        // Mirror host's current lifecycle state — if the host is already
-        // STARTED/RESUMED when the assembly is built, we catch up
-        // synchronously so subscribers see consistent events.
+        // 镜像宿主当前的生命周期状态——如果 assembly 构建时宿主已经处于
+        // STARTED/RESUMED，我们要同步把状态追上来，订阅者才能看到一致的事件序列。
         bridgeHostLifecycle(ctx.host)
 
         return created
@@ -258,23 +242,21 @@ abstract class Page(
         } catch (t: Throwable) {
             Logger.w(LOG_TAG, "onDestroy threw for $pageId: ${t.message}")
         }
-        // Clear the ViewTree stamp before dropping the view reference,
-        // so a View someone caches outside the framework (a row pool,
-        // a screenshot util) can't keep the PageContext / host alive
-        // long after detach.
+        // 在丢弃 view 引用之前先把 ViewTree 戳清掉，
+        // 这样如果某些 View 被框架以外的地方缓存了（行池、截图工具），
+        // 也不能继续把 PageContext / 宿主拖在内存里。
         view?.setPageContext(null)
         view = null
 
-        // Unsubscribe from host's lifecycle so we don't pile up observers
-        // across Assembly.replace cycles. Guarded because performDetach
-        // also runs when the host itself is being destroyed, at which
-        // point the observer list is already being torn down.
+        // 把自己从宿主生命周期里反订阅，避免 Assembly.replace 反复跑后堆 observer。
+        // 加 try 是因为 performDetach 也可能是宿主自己被销毁时跑的，此时 observer
+        // 列表本身就在拆。
         hostObserver?.let { obs ->
             if (::context.isInitialized) {
                 try {
                     context.host.lifecycle.removeObserver(obs)
                 } catch (_: Throwable) {
-                    /* host already gone, fine */
+                    /* 宿主已经没了，无所谓 */
                 }
             }
         }
@@ -286,16 +268,14 @@ abstract class Page(
     }
 
     /**
-     * Forward host's lifecycle events into our own [lifecycleRegistry] so
-     * Mavericks subscriptions / coroutines tied to [pageScope] receive
-     * consistent state transitions.
+     * 把宿主的生命周期事件转发进我们自己的 [lifecycleRegistry]，让绑定到 [pageScope]
+     * 的 Mavericks 订阅 / 协程能收到一致的状态切换。
      *
-     * We listen on the *host* (not the assembly) so that pages added to a
-     * later assembly still get correct STARTED/RESUMED events even if the
-     * host was already RESUMED at the time the assembly was built.
+     * 我们监听的是**宿主**（而不是 assembly），这样即使页面在 assembly 重组后才加入，
+     * 宿主当时已经处于 RESUMED 状态，新加入的页面也能正确收到 STARTED/RESUMED 事件。
      */
     private fun bridgeHostLifecycle(host: PageHost) {
-        // Catch up first…
+        // 先把状态追上来……
         val hostState = host.lifecycle.currentState
         if (hostState.isAtLeast(Lifecycle.State.STARTED) &&
             lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.CREATED)
@@ -306,8 +286,7 @@ abstract class Page(
             lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         }
 
-        // …then track future transitions. Save the observer reference
-        // so performDetach can unregister it.
+        // ……再追踪后续切换。保存 observer 引用以便 performDetach 反注册。
         val obs = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START,

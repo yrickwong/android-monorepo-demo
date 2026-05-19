@@ -16,27 +16,22 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * A heterogeneous version of [ListPage]: each item in [itemsFlow] can
- * be a different subtype of the common supertype [T], rendered by a
- * different [ItemBinder] picked up at runtime from a class-based
- * registry.
+ * [ListPage] 的异构版本：[itemsFlow] 里的每个 item 可以是公共父类型 [T] 的不同子类型，
+ * 由不同的 [ItemBinder] 渲染——具体用哪个 binder，是在运行时基于 class 注册表查出来的。
  *
- * ## Why a separate Page (and not "just a flag on ListPage")
+ * ## 为什么要单独搞一个 Page（而不是 "在 ListPage 上加个 flag"）
  *
- * The single-type [ListPage] is a 95% case. Forcing every list to opt
- * into a per-item dispatch table would (a) clutter the simple call
- * site with a one-entry builder, (b) push every binder through an
- * unnecessary `Class.isInstance` check on the hot bind path, and
- * (c) blur the "all rows in this list are equivalent" reading of the
- * code. The two Pages share zero public surface beyond what RecyclerView
- * itself imposes; keeping them separate is cheaper than parameterising
- * one of them into doing both jobs.
+ * 单类型的 [ListPage] 覆盖了 95% 的场景。强迫每个列表都去走一份 per-item 分发表会：
+ * (a) 让简单调用点也得写一个只有一条记录的 builder，
+ * (b) 让所有 binder 在 hot bind path 上都得过一次没必要的 `Class.isInstance` 检查，
+ * (c) 让 "这个列表里所有 row 都等价" 这种代码语义变模糊。两个 Page 除了 RecyclerView
+ * 本身强加的接口之外没有任何公共 API；保持它们分开，比把其中一个参数化成能同时干两件事，
+ * 代价更低。
  *
- * Existing [ItemBinder] implementations work as-is — there is no new
- * interface to implement. [MultiTypeListPage] is a strictly additive
- * Page type; [ListPage] is unchanged.
+ * 已有的 [ItemBinder] 实现可以直接用——不用再实现任何新接口。
+ * [MultiTypeListPage] 是严格加法式的新 Page 类型；[ListPage] 完全没动。
  *
- * ## Usage
+ * ## 用法
  *
  * ```kotlin
  * sealed interface FeedRow {
@@ -49,7 +44,7 @@ import kotlinx.coroutines.launch
  * class AdRowBinder      : ItemBinder<FeedRow.AdRow>      { ... }
  * class LoadingRowBinder : ItemBinder<FeedRow.LoadingRow> { ... }
  *
- * // in assemble { }:
+ * // 在 assemble { } 里：
  * +MultiTypeListPage(
  *     itemsFlow = vm.stateFlow.map { it.feedRows }.distinctUntilChanged(),
  * ) {
@@ -59,32 +54,27 @@ import kotlinx.coroutines.launch
  * } at R.id.feed_body_slot
  * ```
  *
- * ## Dispatch rules
+ * ## 分发规则
  *
- *  - Item → binder lookup uses `Class.isInstance` against the type
- *    declared at `bind<T>()`, **in registration order**. Register
- *    more-specific types first if you have a `sealed` hierarchy
- *    where a row could conceivably match more than one entry.
- *  - An item whose class matches no registered binder is a programmer
- *    error: it throws an [IllegalStateException] at the next bind
- *    cycle with the offending class name. Use an explicit
- *    "loading" / "error" row type instead of allowing `null` or
- *    "anything else" semantics.
- *  - DiffUtil treats rows of different types as different items even
- *    if `==` would say otherwise; that prevents the framework from
- *    trying to rebind an `AdRow` view as a `NoteRow`.
+ *  - item → binder 的查找是在 `bind<T>()` 声明的类型上做 `Class.isInstance`，
+ *    **按注册顺序**遍历。如果你的 `sealed` 层级里一个 row 有可能匹配多个 entry，
+ *    把更具体的类型注册在前面。
+ *  - 如果一个 item 的 class 谁都不匹配，那是程序员错误：下次 bind 时会以
+ *    [IllegalStateException] 抛出，错误信息里带上肇事 class 名。请改成显式的
+ *    "loading" / "error" row 类型，不要靠 `null` 或者 "其它一切" 的语义。
+ *  - DiffUtil 会把不同类型的 row 视为不同 item，即使它们 `==` 起来相等；
+ *    这能避免框架试图把 `AdRow` 的 view 当成 `NoteRow` 重绑。
  *
- * ## What carries over from [ListPage]
+ * ## 从 [ListPage] 继承下来的部分
  *
- *  - Each row's `itemView` is stamped with the parent Page's
- *    [PageContext] in `onCreateViewHolder`, so deep descendants can
- *    resolve via [com.demo.foundations.assemblekit.findPageContext].
- *  - `itemsFlow` is collected via `collectLatest` on [pageScope];
- *    detach / [com.demo.foundations.assemblekit.Assembly.replace]
- *    cancels the collector and drops the adapter reference.
- *  - `itemsFlow` should be derived from the Shell VM's
- *    `stateFlow.map { ... }.distinctUntilChanged()`; do not feed a
- *    hot repository flow directly — same MVI rule as [ListPage].
+ *  - 每个 row 的 `itemView` 在 `onCreateViewHolder` 里都会被打上父 Page 的
+ *    [PageContext] tag，深层子 View 因此可以通过
+ *    [com.demo.foundations.assemblekit.findPageContext] 解析到。
+ *  - `itemsFlow` 通过 [pageScope] 上的 `collectLatest` 来收集；
+ *    detach / [com.demo.foundations.assemblekit.Assembly.replace] 会取消该 collector
+ *    并清掉 adapter 引用。
+ *  - `itemsFlow` 应该是从 Shell VM 的 `stateFlow.map { ... }.distinctUntilChanged()`
+ *    派生出来的；不要直接喂一个 hot 的 repository flow——和 [ListPage] 一样的 MVI 规则。
  */
 open class MultiTypeListPage<T : Any>(
     private val itemsFlow: Flow<List<T>>,
@@ -106,9 +96,8 @@ open class MultiTypeListPage<T : Any>(
     private var adapter: MultiBinderAdapter<T>? = null
 
     final override fun onCreateView(inflater: LayoutInflater, parent: ViewGroup): View {
-        // Same care as ListPage: capture the parent Page's PageContext
-        // explicitly. Inside the `apply` block `context` would resolve
-        // to View.getContext() (an Android Context).
+        // 与 ListPage 同样的注意点：显式把父 Page 的 PageContext 捕获下来。
+        // 在 `apply` 块内部，`context` 会解析成 View.getContext()（一个 Android Context）。
         val pageCtx: PageContext = context
         val rv = RecyclerView(parent.context).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -157,8 +146,8 @@ open class MultiTypeListPage<T : Any>(
             @Suppress("UNCHECKED_CAST")
             val binder = entries[viewType].binder as ItemBinder<Any?>
             val rowView = binder.createView(parent, parentCtx)
-            // Stamp the row root so descendants can reach this Page's
-            // PageContext via view.findPageContext() — mirrors ListPage.
+            // 给 row 根节点打 tag，让子孙 View 能通过 view.findPageContext()
+            // 拿到本 Page 的 PageContext——逻辑与 ListPage 一致。
             rowView.setPageContext(parentCtx)
             return BinderViewHolder(rowView)
         }
@@ -172,13 +161,11 @@ open class MultiTypeListPage<T : Any>(
         }
 
         override fun onViewRecycled(holder: BinderViewHolder) {
-            // We don't know which binder a recycled holder belongs to
-            // without re-deriving from position, which the framework
-            // doesn't give us at recycle time. Fall back to a no-op;
-            // binders that need an explicit unbind hook can subclass
-            // and override onBindViewHolder + maintain a sidecar map
-            // keyed by holder identity. For the common case (text /
-            // image / click listener), no action is needed.
+            // 我们没法在不从 position 反推的前提下知道某个被回收的 holder 属于
+            // 哪个 binder，而 RecyclerView 在 recycle 时机并不提供 position。
+            // 这里直接 no-op；如果 binder 真的需要显式 unbind 钩子，可以子类化
+            // 并覆写 onBindViewHolder，再用一个以 holder 身份为 key 的旁挂 map 维护。
+            // 对常见场景（text / image / 点击监听）来说，不需要做任何动作。
         }
     }
 
@@ -191,9 +178,8 @@ open class MultiTypeListPage<T : Any>(
         override fun areItemsTheSame(old: T, new: T): Boolean {
             val oldIdx = indexOfBinderForOrNull(old, entries)
             val newIdx = indexOfBinderForOrNull(new, entries)
-            // Different row types are never "the same item" — prevents
-            // RecyclerView from trying to rebind a NoteRow holder as
-            // an AdRow.
+            // 不同 row 类型永远不算 "同一个 item"——避免 RecyclerView 试图把一个
+            // NoteRow 的 holder 当成 AdRow 来重绑。
             if (oldIdx == null || newIdx == null || oldIdx != newIdx) return false
             @Suppress("UNCHECKED_CAST")
             val binder = entries[oldIdx].binder as ItemBinder<Any?>
@@ -237,13 +223,11 @@ open class MultiTypeListPage<T : Any>(
 }
 
 /**
- * DSL builder collected by [MultiTypeListPage]'s constructor. Use
- * [bind] to register one [ItemBinder] per concrete subtype of the
- * list's common element type.
+ * 由 [MultiTypeListPage] 构造函数收集的 DSL builder。用 [bind] 给列表元素的公共类型
+ * 下的每个具体子类型注册一个 [ItemBinder]。
  *
- * Registration order matters when a row could match multiple entries
- * — earlier `bind<T>()` calls win. Register the most specific type
- * first.
+ * 注册顺序在一个 row 可能匹配多个 entry 时是有意义的——靠前的 `bind<T>()` 胜出。
+ * 把最具体的类型注册在最前面。
  */
 class MultiTypeBindersBuilder<T : Any> @PublishedApi internal constructor() {
 
@@ -251,8 +235,7 @@ class MultiTypeBindersBuilder<T : Any> @PublishedApi internal constructor() {
     internal val entries: MutableList<TypedBinderEntry<T, out T>> = mutableListOf()
 
     /**
-     * Register [binder] as the renderer for all items whose runtime
-     * class is assignable to [C].
+     * 把 [binder] 注册为所有运行时 class 可赋值给 [C] 的 item 的渲染器。
      */
     inline fun <reified C : T> bind(binder: ItemBinder<C>) {
         entries += TypedBinderEntry(C::class.java, binder)
@@ -260,9 +243,8 @@ class MultiTypeBindersBuilder<T : Any> @PublishedApi internal constructor() {
 }
 
 /**
- * Internal pairing of "concrete row type" + "binder that knows how to
- * render it". Public only because the inline `bind<C>()` extension on
- * [MultiTypeBindersBuilder] needs to construct it from product code.
+ * "具体 row 类型" + "知道怎么渲染它的 binder" 的内部配对。设为 public 仅仅是因为
+ * [MultiTypeBindersBuilder] 上 inline 的 `bind<C>()` 扩展需要在产品代码里构造它。
  */
 class TypedBinderEntry<T : Any, C : T> @PublishedApi internal constructor(
     internal val type: Class<C>,

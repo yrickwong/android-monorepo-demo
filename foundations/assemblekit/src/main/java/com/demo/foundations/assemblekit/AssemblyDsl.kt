@@ -6,34 +6,33 @@ import androidx.annotation.IdRes
 import com.demo.foundations.assemblekit.local.PageContextKey
 
 /**
- * DSL marker so blocks of `assemble {}` cannot accidentally call each
- * other's receivers — a common foot-gun in deeply nested Kotlin DSLs.
+ * DSL 标记：让 `assemble {}` 内嵌的各层 block 互相不能"误调用"对方的 receiver——
+ * 这是 Kotlin 深嵌 DSL 里常见的坑。
  */
 @DslMarker
 annotation class AssemblyDsl
 
 /**
- * Builder handed to the `assemble {}` block. Provides the unary-plus
- * operator for the canonical syntax, with optional `at(R.id.…)` for
- * pinning individual Pages to specific layout slots:
+ * 传给 `assemble {}` block 的 builder。提供 unary-plus 操作符作为标准语法，
+ * 并配套可选的 `at(R.id.…)` 把单个 Page 钉到具体布局槽位上：
  *
  * ```kotlin
- * assemble(container = root) {                 // default container
+ * assemble(container = root) {                 // 默认容器
  *     +LoginHeaderPage()                       // → root
  *     +LoginBodyPage() at R.id.body_slot       // → R.id.body_slot
  *     +LoginBottomPage()                       // → root
  * }
  * ```
  *
- * Also exposes [page] for cases where unary-plus is awkward (passing a
- * page returned by a factory) and [whenever] for conditional inclusion.
+ * 同时暴露 [page]（应对 unary-plus 不便的场景，比如塞一个 factory 生产出来的 page）
+ * 和 [whenever]（条件性纳入）。
  */
 @AssemblyDsl
 class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
 
     /**
-     * Canonical: `+MyPage()` appends to the assembly. Returns a
-     * [MountSpec] so the call site can chain `at(R.id.…)`.
+     * 标准用法：`+MyPage()` 追加到 assembly。返回一个 [MountSpec]，
+     * 调用点可以继续 `at(R.id.…)` 链式钉位。
      */
     operator fun <P : Page> P.unaryPlus(): MountSpec {
         val spec = MountSpec(this)
@@ -42,9 +41,9 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
     }
 
     /**
-     * Pin this page to a specific slot in the host layout, by view id.
-     * The id must resolve to a [ViewGroup] inside the host's
-     * `setContentView()` tree at the time `assemble {}` runs.
+     * 按 view id 把这个 page 钉到宿主布局里的特定槽位。
+     * `assemble {}` 运行时，这个 id 必须能在宿主 `setContentView()` 树里
+     * 解析到一个 [ViewGroup]。
      *
      * ```kotlin
      * +HeaderPage() at R.id.slot_top
@@ -54,7 +53,7 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
         containerIdOverride = containerId
     }
 
-    /** Functional variant: `page(myPageFactory.create())`. */
+    /** 函数式变体：`page(myPageFactory.create())`。 */
     fun page(page: Page): MountSpec {
         val spec = MountSpec(page)
         assembly.add(spec)
@@ -62,7 +61,7 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
     }
 
     /**
-     * Conditional inclusion. Useful for AB tests / RemoteConfig gating:
+     * 条件性纳入。常用于 AB 实验 / RemoteConfig 开关：
      *
      * ```kotlin
      * whenever(showBanner) { +PromoBannerPage() }
@@ -73,12 +72,11 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
     }
 
     /**
-     * Provide a value at **assembly scope**. Visible to every Page in
-     * this Assembly via `consume(key)`, and to anything those Pages
-     * hand their [PageContext] to (e.g. items inside a `ListPage`).
+     * 在 **assembly 作用域** provide 一个值。本 Assembly 里每个 Page 都能通过
+     * `consume(key)` 看到，那些 Page 把自己的 [PageContext] 传给的下游（比如
+     * `ListPage` 里的 item）也能看到。
      *
-     * Call this *before* the Pages that depend on it — values are read
-     * eagerly during attach.
+     * 必须在依赖它的 Page 之前调用——值是在 attach 阶段被立即读取的。
      *
      * ```kotlin
      * val FeedRepositoryKey = pageContextKey<FeedRepository>("feed.repo")
@@ -96,12 +94,12 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
 }
 
 /**
- * Entry point: build an [Assembly] inside this host and immediately
- * install every Page declared in [block].
+ * 入口函数：在当前宿主里构建一个 [Assembly]，并立即把 [block] 里声明的 Page
+ * 全部安装上去。
  *
- * Two valid usages:
+ * 两种合法用法：
  *
- *  - **Single container** (legacy / simple screens):
+ *  - **单容器**（老式 / 简单屏幕）：
  *    ```kotlin
  *    assemble(container = root) {
  *        +HeaderPage()
@@ -110,7 +108,7 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
  *    }
  *    ```
  *
- *  - **Multi-slot layout** (Pages pin themselves):
+ *  - **多槽位布局**（Page 自己钉位）：
  *    ```kotlin
  *    assemble {
  *        +HeaderPage()  at R.id.slot_top
@@ -119,15 +117,13 @@ class AssemblyBuilder internal constructor(internal val assembly: Assembly) {
  *    }
  *    ```
  *
- *  - **Mixed**: provide a default container *and* let individual Pages
- *    override with `at(…)` when needed.
+ *  - **混合用**：给一个默认容器，*同时*让需要的 Page 用 `at(…)` 覆盖到具体槽位。
  *
- * @param container Optional default container for Pages that do not
- *   pin themselves with `at(R.id.…)`. Pass `null` (or omit) for a
- *   pure multi-slot layout — but then every Page MUST use `at(...)`,
- *   otherwise install throws.
- * @param orientation Honoured only when the resolved mount target is
- *   a [LinearLayout]; ignored otherwise.
+ * @param container 默认容器，给那些不用 `at(R.id.…)` 钉位的 Page 用（可选）。
+ *   传 `null`（或省略）就是纯多槽位布局——但这时**每个** Page 都必须用 `at(...)`，
+ *   否则 install 会抛。
+ * @param orientation 只有当最终解析到的挂载目标是 [LinearLayout] 时才生效，
+ *   其它容器忽略。
  */
 fun PageHost.assemble(
     container: ViewGroup? = null,

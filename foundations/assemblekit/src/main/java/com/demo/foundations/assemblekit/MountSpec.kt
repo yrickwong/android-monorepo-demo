@@ -5,23 +5,22 @@ import android.view.ViewGroup
 import androidx.annotation.IdRes
 
 /**
- * One slot in an [Assembly]: a [Page] plus where it should mount.
+ * [Assembly] 里的一个槽位：一个 [Page] 加上"它该挂在哪"。
  *
- * Created implicitly by `+MyPage()` inside the `assemble {}` DSL block;
- * configured via the `at(R.id.slot_xxx)` infix:
+ * 在 `assemble {}` DSL 块里用 `+MyPage()` 隐式创建；通过 `at(R.id.slot_xxx)`
+ * infix 来配置：
  *
  * ```kotlin
- * assemble(container = root) {        // default container as fallback
+ * assemble(container = root) {        // 默认容器作为兜底
  *     +HeaderPage() at R.id.slot_top
- *     +BodyPage()                     // no .at → falls back to root
+ *     +BodyPage()                     // 没写 .at → 回落到 root
  *     +BottomPage() at R.id.slot_bottom
  * }
  * ```
  *
- * The class is intentionally tiny and mutable-after-construction (only
- * within the DSL block, which is single-threaded) — the alternative is
- * making `unaryPlus` allocate a wrapping object on every page and forcing
- * a `.also { }` for each override, which reads worse.
+ * 这个类刻意做得极小、构造之后可变（仅在 DSL block 内有效，DSL block 本身是单线程的）——
+ * 另一种实现是让 `unaryPlus` 对每个 page 都分配一个包装对象、并强制每次 override 都写
+ * `.also { }`，可读性更差。
  */
 class MountSpec internal constructor(internal val page: Page) {
 
@@ -29,15 +28,13 @@ class MountSpec internal constructor(internal val page: Page) {
     internal var containerIdOverride: Int = View.NO_ID
 
     /**
-     * Resolve the [ViewGroup] this Page should be attached to.
+     * 解析出这个 Page 应该 attach 到的 [ViewGroup]。
      *
-     * Lookup order:
-     *  1. If [containerIdOverride] is set, ask the host for that id.
-     *     Failure is fatal (likely a typo in the slot id).
-     *  2. Otherwise, fall back to [defaultContainer] — the one passed
-     *     to `assemble(container = ...)`.
-     *  3. If neither is available, throw with a hint that points the
-     *     caller at both options.
+     * 查找顺序：
+     *  1. 如果设置了 [containerIdOverride]，向宿主要这个 id。
+     *     找不到直接致命（多半是 slot id 拼错了）。
+     *  2. 否则回落到 [defaultContainer]——即传给 `assemble(container = ...)` 的那个。
+     *  3. 两者都没有就抛，错误信息会指明两种修复方向。
      */
     internal fun resolveContainer(host: PageHost, defaultContainer: ViewGroup?): ViewGroup {
         if (containerIdOverride != View.NO_ID) {

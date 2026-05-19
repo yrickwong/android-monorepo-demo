@@ -15,59 +15,55 @@ import kotlinx.coroutines.CoroutineScope
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * The unit of "things that ship together on one screen".
+ * "在同一个屏幕里一起出现的那批东西" 的单位。
  *
- * An [Assembly] is born inside a host (`Activity` / `Fragment`) and holds
- * a list of [Page]s. The assembly owns:
+ * 一个 [Assembly] 诞生于某个宿主（`Activity` / `Fragment`）之内，持有一组 [Page]。
+ * Assembly 拥有：
  *
- *  - its **own** lifecycle, mirrored from the host
- *  - its **own** [ScopedEventBus] and [ScopedCommandBus] (siblings only)
- *  - the container `ViewGroup` into which Page views are attached
+ *  - 自己**独立**的生命周期，从宿主镜像而来
+ *  - 自己**独立**的 [ScopedEventBus] 和 [ScopedCommandBus]（仅供兄弟 Page 用）
+ *  - 用于挂载 Page view 的容器 `ViewGroup`
  *
- * Assemblies are constructed via [assemble] — never `new Assembly(...)`
- * directly — so that the DSL can collect Pages and install them in the
- * correct order.
+ * Assembly 必须通过 [assemble] 构造——不要直接 `new Assembly(...)`——这样 DSL 才能
+ * 按正确顺序收集并安装 Page。
  *
- * Two assemblies inside the same host **do not see each other's buses**
- * by design: if they need to communicate, they go through the host bus.
- * This keeps fan-out predictable as a screen grows.
+ * 同一宿主下的两个 assembly **互相看不到对方的 bus**，这是有意为之：如果它们需要
+ * 通信，请走宿主 bus。这样屏幕变大时 fan-out 的范围始终是可预期的。
  */
 class Assembly internal constructor(
     val host: PageHost,
     /**
-     * Default container used by any Page that does NOT use the
-     * `at(R.id.…)` DSL to pin itself onto a specific slot.
+     * 默认容器：所有不使用 `at(R.id.…)` DSL 把自己钉到具体槽位上的 Page，
+     * 都会被挂到这里。
      *
-     * Two valid configurations:
-     *  - `container` set, no `at(...)` calls — classic stack-into-one-box.
-     *  - `container = null`, every Page uses `at(...)` — multi-slot layout.
+     * 两种合法配置：
+     *  - `container` 提供、没有任何 `at(...)` 调用——经典的"全堆在一个盒子里"。
+     *  - `container = null`、每个 Page 都用 `at(...)`——多槽位布局。
      *
-     * Mixing is fine: pinned Pages mount where they ask, the rest stack
-     * into the default container. If a Page has neither and there's no
-     * default, attach throws at install time with a pointer to both
-     * fixes.
+     * 混用也没问题：被钉的 Page 挂到自己指定的位置，其余的统一堆进默认容器。
+     * 如果某个 Page 既没被钉、默认容器也是 null，install 阶段 attach 会直接抛，
+     * 错误信息会指明两种修复方向。
      */
     val container: ViewGroup?,
     /**
-     * Direction in which Page views are stacked when [container] is a
-     * [LinearLayout]. Ignored for `FrameLayout` / `ConstraintLayout`-style
-     * containers where Pages position themselves.
+     * 当 [container] 是 [LinearLayout] 时，Page view 堆叠的方向。
+     * 对 `FrameLayout` / `ConstraintLayout` 这种由 Page 自己定位的容器无效。
      */
     val orientation: Int = LinearLayout.VERTICAL,
 ) {
 
     // ------------------------------------------------------------------
-    // Lifecycle (mirrored from host)
+    // 生命周期（从宿主镜像）
     // ------------------------------------------------------------------
 
     private val lifecycleRegistry = LifecycleRegistry(host)
     val lifecycle: Lifecycle get() = lifecycleRegistry
 
-    // Scope cancelled when the host hits ON_DESTROY.
+    // 宿主走到 ON_DESTROY 时取消的 scope。
     val scope: CoroutineScope = host.lifecycleScope
 
     // ------------------------------------------------------------------
-    // Buses
+    // 总线
     // ------------------------------------------------------------------
 
     private val assemblyId: String = run {
@@ -84,28 +80,27 @@ class Assembly internal constructor(
     val commands: ScopedCommandBus = ScopedCommandBus(tag = "AssemblyCmd($assemblyId)")
 
     /**
-     * Assembly-level "locals" container. Chained to [PageHost.hostLocal]
-     * as its parent so anything provided on the host is visible here
-     * (and to every page underneath) via [ScopedContainer.resolve].
+     * Assembly 级 "locals" 容器。以 [PageHost.hostLocal] 为父，所以宿主上 provide 的
+     * 任何值在这里（及其下面的每个 Page）通过 [ScopedContainer.resolve] 都能看到。
      *
-     * Populated by the `provides(key, value)` calls inside the
-     * `assemble {}` DSL block; pages can read via `consume(key)`.
+     * 由 `assemble {}` DSL 块里的 `provides(key, value)` 调用填充；Page 通过
+     * `consume(key)` 读取。
      */
     val assemblyLocal: ScopedContainer =
         ScopedContainer.child(parent = host.hostLocal, debugName = "asmLocal($assemblyId)")
 
     // ------------------------------------------------------------------
-    // Pages
+    // Page 集合
     // ------------------------------------------------------------------
 
     private val specs = mutableListOf<MountSpec>()
     private val attached = mutableListOf<Page>()
-    // Remember which ViewGroup we mounted each page into, so replace() can
-    // remove the exact view from the exact slot even when slots differ.
+    // 记录每个 page 当初挂到了哪个 ViewGroup，replace() 时即使槽位不同
+    // 也能精确地从对应槽位移除 view。
     private val pageMountTargets = mutableMapOf<Page, ViewGroup>()
     private var installed = false
 
-    /** Read-only snapshot of attached pages, in declaration order. */
+    /** 已挂载 page 的只读快照，按声明顺序。 */
     val pagesSnapshot: List<Page> get() = attached.toList()
 
     internal fun add(spec: MountSpec) {
@@ -114,15 +109,14 @@ class Assembly internal constructor(
     }
 
     /**
-     * Inflate and attach every queued Page, in declaration order. This is
-     * called by [assemble] right after the DSL block runs; callers should
-     * not invoke it manually.
+     * 按声明顺序把队列里的每个 Page inflate + attach。由 [assemble] 在 DSL 块跑完
+     * 后调用；外部调用方不要手动调它。
      */
     internal fun install() {
         check(!installed) { "Assembly already installed" }
         installed = true
 
-        // Sync the host's lifecycle into our own registry, then keep tracking.
+        // 把宿主的生命周期同步到自己的 registry，然后持续追踪。
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         host.lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
@@ -147,23 +141,21 @@ class Assembly internal constructor(
         val page = spec.page
         val mountTarget = spec.resolveContainer(host, container)
         val pageId = derivePageId(page, index)
-        // Each page gets its own bus + its own coroutine scope derived from
-        // the assembly scope, so we can later add "swap one page" semantics
-        // without leaking subscribers from the replaced page.
+        // 每个 page 拿到自己的 bus + 一个由 assembly scope 派生出来的协程 scope，
+        // 这样将来要加 "只换一个 page" 的能力时，被换掉的 page 的订阅者不会泄漏。
         val pageBus = ScopedEventBus(tag = "PageBus($pageId)")
         val pageCommands = ScopedCommandBus(tag = "PageCmd($pageId)")
 
-        // Each Page gets its own local container, chained to the assembly's
-        // (which is itself chained to the host's). Lookups walk this chain
-        // automatically via ScopedContainer.resolve.
+        // 每个 Page 拿到自己的 local 容器，挂到 assembly 的（assembly 的又挂到宿主的）。
+        // 查找时 ScopedContainer.resolve 会自动沿这条链回溯。
         val pageLocal = ScopedContainer.child(parent = assemblyLocal, debugName = "pageLocal($pageId)")
 
         val ctx = PageContext(
             host = host,
             assembly = this,
             pageId = pageId,
-            // Use the page's own lifecycleScope (LifecycleRegistry-backed),
-            // which is cancelled in performDetach() via ON_DESTROY.
+            // 用 page 自己的 lifecycleScope（基于 LifecycleRegistry），
+            // 它会在 performDetach() 里通过 ON_DESTROY 取消。
             pageScope = page.lifecycleScope,
             assemblyScope = scope,
             hostScope = host.lifecycleScope,
@@ -195,31 +187,26 @@ class Assembly internal constructor(
     }
 
     // ------------------------------------------------------------------
-    // Recomposition: host-driven structural change.
+    // 重组：由宿主驱动的结构性变更
     // ------------------------------------------------------------------
 
     /**
-     * Tear down every currently-attached Page and re-install the
-     * composition declared in [block]. The host's own lifecycle, scope,
-     * ViewModelStore, and [hostLocal] / [hostBus] are **not** affected;
-     * only this Assembly's pages and its [assemblyLocal] entries are.
+     * 拆掉当前已挂载的每个 Page，再按 [block] 声明的组合重新安装。
+     * 宿主自身的生命周期、scope、ViewModelStore、[hostLocal] / [hostBus]
+     * **不会**被动；动到的只有这个 Assembly 的 Page 和 [assemblyLocal] 里的条目。
      *
-     * Why this lives on Assembly (and is callable only by the Host):
-     *  - Page does not, and intentionally cannot, reach the Assembly
-     *    instance — Pages aren't allowed to swap their siblings out from
-     *    under each other. Letting them mutate composition turns the
-     *    "page is a small UI slice" contract into "page is a router",
-     *    which is exactly the Fragment trap AssembleKit exists to avoid.
-     *  - The host already owns the decision of "what is on screen right
-     *    now" via its lifecycle + the initial `assemble {}` block.
-     *    `replace` is the second entry point of that same decision tree:
-     *    "from this event onward, the screen looks like THIS instead".
+     * 为什么这个方法挂在 Assembly 上、且只允许宿主调用：
+     *  - Page 取不到、也刻意取不到 Assembly 实例——不允许 Page 互相替换兄弟。
+     *    让 Page 改组合，就把 "page 是一小块 UI 切片" 的契约滑坡成 "page 是路由器"，
+     *    那正是 AssembleKit 存在以避开的 Fragment 陷阱。
+     *  - 宿主本来就通过生命周期 + 第一次 `assemble {}` 拥有 "当前屏幕长啥样" 的决策权。
+     *    `replace` 是同一棵决策树上的第二个入口：
+     *    "从这个事件起，屏幕改成长这样"。
      *
-     * Typical use: Activity listens for an event on `hostBus` and reacts
-     * by reshaping its assembly.
+     * 典型用法：Activity 监听 `hostBus` 上的事件，借此重塑自己的 assembly。
      *
      * ```kotlin
-     * // inside LoginActivity, e.g. after credentials succeed:
+     * // 在 LoginActivity 里，例如登录成功后：
      * hostBus.on<LoginEvent.LoginFinished>(lifecycleScope) {
      *     loginAssembly.replace {
      *         +SuccessHeaderPage() at R.id.slot_header
@@ -228,15 +215,13 @@ class Assembly internal constructor(
      * }
      * ```
      *
-     * Trade-offs:
-     *  - ViewModels of removed Pages remain in the host's ViewModelStore
-     *    until the host is destroyed. For long-lived assemblies this is
-     *    rarely a leak; for short-lived bottom-sheets it can grow. A
-     *    future `Assembly.dispose()` will evict eagerly.
-     *  - assemblyLocal entries are wiped before the new block runs, so
-     *    the new composition starts from "whatever the host provided"
-     *    plus its own provides. This is the predictable choice — if you
-     *    want a value to survive a replace, put it on hostLocal.
+     * 取舍：
+     *  - 被移除 Page 的 ViewModel 会一直留在宿主的 ViewModelStore 里，直到宿主销毁。
+     *    对长寿命 assembly 一般不算泄漏；对短寿命 bottom-sheet 可能会涨。
+     *    未来的 `Assembly.dispose()` 会主动驱逐。
+     *  - assemblyLocal 条目会在新 block 跑之前被清空，新组合的起点是
+     *    "宿主提供的那些" + 它自己新 provide 的那些。这是一个可预测的选择——
+     *    要让一个值在 replace 之后还能存活，请挂到 hostLocal 上。
      */
     fun replace(block: AssemblyBuilder.() -> Unit) {
         check(installed) {
@@ -244,8 +229,7 @@ class Assembly internal constructor(
                 "use assemble { … } for the first composition."
         }
 
-        // Tear down current pages in reverse declaration order so any
-        // sibling dependencies unwind cleanly.
+        // 按声明顺序的反序拆当前 page，这样兄弟之间的依赖能干净地反向解除。
         for (page in attached.asReversed()) {
             val mountTarget = pageMountTargets[page]
             val view = page.view
@@ -265,11 +249,10 @@ class Assembly internal constructor(
         attached.clear()
         pageMountTargets.clear()
 
-        // Fresh provides surface for the new composition; hostLocal is
-        // untouched so anything the host wired stays visible.
+        // 给新组合一份干净的 provide 表；hostLocal 不动，宿主接好的东西都还在。
         assemblyLocal.clearLocalEntries()
 
-        // Re-collect specs from the new builder block, then re-attach.
+        // 从新 builder block 重新收集 spec，然后重新 attach。
         specs.clear()
         AssemblyBuilder(this).block()
         val newSpecs = specs.toList()

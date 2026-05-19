@@ -9,59 +9,48 @@ import androidx.asynclayoutinflater.view.AsyncLayoutInflater
 import com.demo.thirdparty.logger.Logger
 
 /**
- * A [ViewPage] that inflates its XML layout on a background thread
- * via [AsyncLayoutInflater] and swaps the real view into a placeholder
- * once inflation finishes.
+ * 一个特殊的 [ViewPage]：通过 [AsyncLayoutInflater] 在后台线程把 XML 布局 inflate 出来，
+ * 完成后把真正的 view 塞进一个 placeholder 里。
  *
- * ## When to use this
+ * ## 什么时候用
  *
- * A normal [ViewPage] inflates its layout **synchronously** on the main
- * thread inside [Page.performAttach]. For most pages — a header bar, a
- * 30-line form, a footer — that's fine and you should keep using
- * [ViewPage]. But for pages whose root layout is genuinely heavy
- * (deep view trees, large `ConstraintLayout`s, many `merge` includes,
- * costly custom-view init), the synchronous inflate cost stacks up:
- * `assemble { +A; +B; +C }` adds up A + B + C inflate cost serially on
- * the main thread. If that pushes the screen past its first-frame
- * budget, [AsyncViewPage] is the surgical fix.
+ * 普通的 [ViewPage] 在 [Page.performAttach] 里**同步**在主线程 inflate 布局。
+ * 对大多数 Page（一条头部 bar、30 行的表单、一个 footer）这没问题，继续用 [ViewPage] 就行。
+ * 但如果某个 Page 的根布局确实重（深 view 树、巨大的 `ConstraintLayout`、一堆 `merge`
+ * include、初始化代价高的自定义 view），同步 inflate 的开销就会叠加：
+ * `assemble { +A; +B; +C }` 会在主线程上串行地把 A + B + C 的 inflate 时间累加起来。
+ * 如果这把首帧预算吃穿了，[AsyncViewPage] 就是那把手术刀。
  *
- * Pick this **only** when you have measured a real first-frame
- * regression and traced it back to layout inflation. Async inflate
- * trades latency-to-first-paint of the page itself (the placeholder
- * shows immediately but is empty for ~tens of milliseconds) for
- * unblocking the main thread so sibling Pages, animations, and input
- * stay smooth. If your page is already the "below-the-fold" or
- * "secondary slot" content, this is usually a win; if it's the
- * above-the-fold hero, it usually isn't.
+ * 只在你**真正测出**首帧回归、并把锅扣到了布局 inflate 头上时才用它。
+ * 异步 inflate 的本质是：用本 Page 自身首屏可见的延迟（placeholder 立即出现，
+ * 但里面空白约几十毫秒）换主线程不被堵住，保证兄弟 Page、动画、输入响应仍然顺滑。
+ * 如果你的页面本就是"折叠以下"或"次要槽位"，这通常划算；如果是首屏 hero 卡，
+ * 通常就不划算。
  *
- * ## What's identical to [ViewPage]
+ * ## 与 [ViewPage] 相同的地方
  *
- *  - Lifecycle hookup, `SavedStateRegistry`, Mavericks integration,
- *    scoped buses, scoped locals — all unchanged. The `PageContext`
- *    you get in [onViewInflated] is exactly the same one a regular
- *    `ViewPage` sees in `onViewCreated`.
- *  - View-tree `PageContext` stamping. The framework stamps the
- *    placeholder at attach time and re-stamps the real inflated view
- *    once it lands, so [View.findPageContext] keeps working from any
- *    descendant regardless of whether inflation has finished yet.
+ *  - 生命周期接线、`SavedStateRegistry`、Mavericks 集成、scoped bus、scoped locals
+ *    全部一致。你在 [onViewInflated] 里看到的 `PageContext` 跟普通 `ViewPage`
+ *    在 `onViewCreated` 里看到的是同一个。
+ *  - View 树 `PageContext` 戳。框架在 attach 时给 placeholder 打戳，等真正的 view
+ *    inflate 完落地后再补一次戳；所以无论 inflate 是否已经完成，
+ *    [View.findPageContext] 从任意后代节点都能正常工作。
  *
- * ## What's different
+ * ## 不一样的地方
  *
- *  - The hook you override is [onViewInflated], not `onViewCreated`.
- *    It runs **after** the layout has been inflated and added to the
- *    placeholder, which may be several frames after `performAttach`
- *    returns. Anything that needs the real view (`findViewById`,
- *    view bindings, click listeners) belongs here.
- *  - If the Page is detached before inflation completes (e.g. the
- *    host is finishing, or [Assembly.replace] swapped this Page out),
- *    the late completion callback is dropped and [onViewInflated] is
- *    not invoked.
- *  - `view.findViewById` on the page root *before* [onViewInflated]
- *    runs returns `null`. Don't synchronously read view state from
- *    `onCreate` / `onPageEvent` handlers that fire before the
- *    inflation completes; gate them on a state field instead.
+ *  - 你要 override 的钩子是 [onViewInflated]，不是 `onViewCreated`。
+ *    它在布局已经 inflate 完、并加入 placeholder **之后**才跑——这可能在
+ *    `performAttach` 返回后好几帧才发生。任何需要操作真正 view 的代码
+ *    （`findViewById`、view binding、click listener）都放这里。
+ *  - 如果 Page 在 inflate 完成之前就被 detach 了（宿主在 finishing，或者
+ *    [Assembly.replace] 把这个 Page 换掉了），晚到的完成回调会被丢弃，
+ *    [onViewInflated] 不会被调用。
+ *  - 在 [onViewInflated] 跑之前，对 Page 根 view 调用 `view.findViewById`
+ *    会返回 `null`。不要在 `onCreate` / `onPageEvent` handler 这种可能比
+ *    inflate 完成更早触发的地方同步读 view 状态；把这种读操作改为依赖
+ *    一个状态字段。
  *
- * ## Example
+ * ## 示例
  *
  * ```kotlin
  * internal class HeavyDetailPage : AsyncViewPage(R.layout.page_heavy_detail) {
@@ -74,12 +63,10 @@ import com.demo.thirdparty.logger.Logger
  * }
  * ```
  *
- * @param layoutResId The XML layout to inflate asynchronously.
- * @param placeholderHeightPx Optional fixed height for the placeholder
- *   while inflate is in flight. Defaults to `WRAP_CONTENT`, which can
- *   cause a small layout jump when the real view lands. Set this when
- *   you know the eventual height (e.g. a fixed-size card slot) to
- *   keep neighbouring Pages from shifting.
+ * @param layoutResId 要异步 inflate 的 XML 布局。
+ * @param placeholderHeightPx inflate 进行中时 placeholder 的固定高度（可选）。
+ *   默认 `WRAP_CONTENT`，真 view 落地时可能产生轻微的布局跳变。当你知道最终高度
+ *   （比如一个固定大小的卡片槽）时建议显式给值，避免相邻 Page 抖动。
  */
 abstract class AsyncViewPage(
     @LayoutRes private val layoutResId: Int,
@@ -91,23 +78,20 @@ abstract class AsyncViewPage(
     private var realView: View? = null
 
     /**
-     * Called once the asynchronous inflate has completed and the real
-     * view has been added to the placeholder. Equivalent to
-     * [ViewPage.onViewCreated] but deferred until the layout is ready.
+     * 当异步 inflate 完成、真正的 view 已经加进 placeholder 之后调用一次。
+     * 语义等同于 [ViewPage.onViewCreated]，只是被推迟到布局真正就绪。
      *
-     * If the Page is detached before the inflate finishes, this is
-     * never called.
+     * 如果 Page 在 inflate 完成之前就被 detach 了，此方法**不会**被调用。
      */
     protected abstract fun onViewInflated(view: View)
 
     /**
-     * Optional teardown for resources allocated in [onViewInflated].
-     * Runs from [ViewPage.onDestroyView]; the framework still drops
-     * the placeholder / real-view references for you.
+     * 释放 [onViewInflated] 里分配的资源（可选）。
+     * 由 [ViewPage.onDestroyView] 触发；placeholder / 真 view 的引用框架会替你清掉。
      */
     protected open fun onAsyncDestroyView() = Unit
 
-    // ---- ViewPage glue ------------------------------------------------
+    // ---- 与 ViewPage 的衔接 -------------------------------------------
 
     final override fun onCreateView(inflater: LayoutInflater, parent: ViewGroup): View {
         val ph = FrameLayout(parent.context).apply {
@@ -120,22 +104,20 @@ abstract class AsyncViewPage(
 
         val capturedCtx: PageContext = context
         AsyncLayoutInflater(parent.context).inflate(layoutResId, ph) { inflated, _, _ ->
-            // The Page may have been detached while inflate was in flight
-            // (host finishing, Assembly.replace ran, etc.). `placeholder`
-            // is nulled in onDestroyView, so use it as the canary.
+            // inflate 进行中 Page 可能已经被 detach 了（宿主 finishing、
+            // Assembly.replace 跑过等）。`placeholder` 在 onDestroyView 里
+            // 被置空，所以拿它当哨兵判断。
             val target = placeholder
             if (target == null) {
                 Logger.w(LOG_TAG, "Async inflate completed after detach for $pageId; dropping result")
                 return@inflate
             }
             realView = inflated
-            // Re-stamp the inflated view with the same PageContext the
-            // framework put on the placeholder. The placeholder's stamp
-            // already lets descendants resolve via `findPageContext()`
-            // through parent-chain walk, but stamping the inflated root
-            // too means an external screenshot / accessibility helper
-            // that picks up the inflated subtree in isolation still
-            // sees the correct context.
+            // 给 inflate 出来的 view 补一次戳，戳的是框架已经盖在 placeholder 上
+            // 的同一个 PageContext。其实 placeholder 上的戳已经能让后代通过
+            // `findPageContext()` 沿父链解析到，但是给 inflate 后的根再补一份，
+            // 可以让某些把这个 subtree 单拎出去看的外部工具（截图、无障碍辅助）
+            // 也能正确拿到 context。
             inflated.setPageContext(capturedCtx)
             target.addView(inflated)
             try {
@@ -148,12 +130,11 @@ abstract class AsyncViewPage(
     }
 
     /**
-     * Sealed because async pages express their "view is ready" moment
-     * via [onViewInflated], not the synchronous [ViewPage.onViewCreated]
-     * (which only sees the empty placeholder).
+     * 封死的原因：异步 Page 用 [onViewInflated] 来表达 "view 就绪" 的时机，
+     * 而不是同步的 [ViewPage.onViewCreated]（后者只会看到空的 placeholder）。
      */
     final override fun onViewCreated(view: View) {
-        // intentional no-op — see class doc
+        // 有意为之的空实现——见类级文档
     }
 
     final override fun onDestroyView() {

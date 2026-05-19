@@ -3,28 +3,25 @@ package com.demo.foundations.assemblekit
 import android.view.View
 
 /**
- * "View-tree PageContext" helpers — the missing piece for deep custom
- * views that want to reach the assembly's shared state (typically the
- * Shell ViewModel) without parameter-drilling.
+ * "View 树 PageContext" helper——这是深层自定义 View 想拿到 assembly 共享状态
+ * （通常是 Shell ViewModel）但又不想一路用参数往下传时缺的那块拼图。
  *
- * Mental model: identical to AndroidX' `ViewTreeLifecycleOwner` /
- * `ViewTreeViewModelStoreOwner`, and morally identical to Compose's
- * `LocalComposition`. The framework stamps the active [PageContext]
- * onto the Page's root View; any descendant View can walk up the
- * `parent` chain to find the nearest stamped context.
+ * 心智模型：和 AndroidX 的 `ViewTreeLifecycleOwner` / `ViewTreeViewModelStoreOwner`
+ * 一样，从语义上也等同于 Compose 的 `LocalComposition`。框架会把当前活跃的
+ * [PageContext] 打到 Page 根 View 的 tag 上；任意子 View 都能顺着 `parent`
+ * 链向上找，定位到最近一个被打过 tag 的 context。
  *
- * **Who stamps the tag?** (You almost never call [setPageContext] by hand.)
- *  - [Page.performAttach] stamps the View returned by `materialize` —
- *    every Page's root view, regardless of flavour ([ViewPage],
- *    [AsyncViewPage], or `ComposablePage` from
- *    `:foundations:assemblekit-compose`), is eligible immediately
- *    after the framework adds it to the container.
- *  - [com.demo.foundations.assemblekit.list.ListPage]'s internal adapter
- *    stamps each row's `itemView` so deep subviews / nested RecyclerView
- *    ViewHolders inside a row can also resolve the parent Page's context.
+ * **谁来打 tag？**（你基本上不会手动调 [setPageContext]。）
+ *  - [Page.performAttach] 会给 `materialize` 返回的那个 View 打 tag——
+ *    不管是哪种 Page（[ViewPage]、[AsyncViewPage]，还是
+ *    `:foundations:assemblekit-compose` 里的 `ComposablePage`），框架把它加进
+ *    container 之后立刻就能用。
+ *  - [com.demo.foundations.assemblekit.list.ListPage] 的内部 adapter 会给每个
+ *    row 的 `itemView` 打 tag，这样行内深层子 View / 嵌套 RecyclerView 的
+ *    ViewHolder 也能拿到所属 Page 的 context。
  *
- * **Who reads it?** Any custom View that needs to call into the Shell
- * ViewModel. Typical usage from a reusable widget:
+ * **谁来读？** 任何需要调用 Shell ViewModel 的自定义 View。一个可复用 widget
+ * 的典型用法：
  *
  * ```kotlin
  * class NoteActionBar(ctx: Context, attrs: AttributeSet?) : LinearLayout(ctx, attrs) {
@@ -41,34 +38,30 @@ import android.view.View
  * }
  * ```
  *
- * The widget exposes a one-field setter (`bind(noteId)`) — every other
- * dependency (the ViewModel, the analytics tracker, theme tokens) flows
- * in via the context lookup. The widget is reusable in *any* AssembleKit
- * page that provides the same key; it does not take a feature-specific
- * type as a constructor param.
+ * 该 widget 只暴露一个字段级的 setter（`bind(noteId)`）——其他依赖
+ * （ViewModel、埋点 tracker、主题 token）都通过 context 查找拿到。
+ * 这个 widget 可以复用到*任何*提供了相同 key 的 AssembleKit 页面里；
+ * 它的构造参数里不会出现特定业务类型。
  *
- * **Why not use a DI framework instead?** A DI lookup
- * (`KoinJavaComponent.get<FeedShellViewModel>()`) would also work
- * mechanically, but it silently bypasses the page-scoping invariant —
- * the view gets *any* live instance, not the one bound to *this* host.
- * See `docs/mvi-rules.md` § "Why not Koin/Hilt".
+ * **为什么不用 DI 框架代替？** 用 DI 查找（`KoinJavaComponent.get<FeedShellViewModel>()`）
+ * 机制上当然也能跑，但它会悄悄破坏 page-scoping 这个不变量——view 拿到的会是
+ * *任意*一个活着的实例，而不一定是绑在 *本* 宿主上的那一个。详见
+ * `docs/mvi-rules.md` 的 "Why not Koin/Hilt" 一节。
  *
- * **Lifecycle / safety:** the tag is a hard reference to the
- * [PageContext], which itself holds the host. The framework clears the
- * stamped reference on detach (see [com.demo.foundations.assemblekit.Page.performDetach]
- * and [com.demo.foundations.assemblekit.list.ListPage.onDestroyView]),
- * so the View tree cannot keep the host alive after teardown.
+ * **生命周期 / 安全性：** tag 是对 [PageContext] 的强引用，而 PageContext 又持有
+ * 宿主。框架会在 detach 时清掉这个引用（见 [com.demo.foundations.assemblekit.Page.performDetach]
+ * 与 [com.demo.foundations.assemblekit.list.ListPage.onDestroyView]），
+ * 所以拆除之后 View 树不会把宿主继续吊住。
  */
 fun View.setPageContext(context: PageContext?) {
     setTag(R.id.assemblekit_page_context_tag, context)
 }
 
 /**
- * Walk up the View parent chain looking for the nearest stamped
- * [PageContext]. Returns `null` if no ancestor has one — most often
- * that means the View was instantiated by `LayoutInflater` outside any
- * Page (e.g. a preview, a dialog), in which case the caller should
- * decide how to degrade.
+ * 沿着 View 的 parent 链向上找，定位最近一个被打过 tag 的 [PageContext]。
+ * 如果一路祖先都没有，返回 `null`——大多数时候这意味着 View 是被 `LayoutInflater`
+ * 在任何 Page 之外实例化的（比如 preview、独立 dialog），调用方需要自己决定
+ * 如何降级。
  */
 fun View.findPageContext(): PageContext? {
     var current: View? = this
@@ -81,12 +74,10 @@ fun View.findPageContext(): PageContext? {
 }
 
 /**
- * Like [findPageContext] but throws if no PageContext is reachable
- * from this View. Use this in widgets that legitimately *require*
- * being mounted inside an AssembleKit page — the error message makes
- * the "this widget was used outside its supported context" bug
- * obvious instead of letting it surface as a null-deref several
- * frames later.
+ * 同 [findPageContext]，但当这个 View 找不到任何 PageContext 时直接抛异常。
+ * 一些 widget 在设计上就*必须*挂在 AssembleKit 的 page 内部，给它们用这个方法——
+ * 错误信息会让 "这个 widget 被用在了不支持的上下文里" 这种 bug 立刻暴露，
+ * 而不是等到几帧之后冒出来一个 null deref。
  */
 fun View.requirePageContext(): PageContext =
     findPageContext()

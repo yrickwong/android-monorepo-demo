@@ -10,25 +10,22 @@ import com.airbnb.mvrx.MavericksViewModel
 import com.airbnb.mvrx.MavericksViewModelProvider
 
 /**
- * Convenience lazy delegate that hands a [Page] a Mavericks ViewModel
- * scoped to the **host Activity's** ViewModelStore (so configuration
- * changes restore it for free), but keyed by `pageId::ViewModelClass`
- * so each Page sees its own instance.
+ * 便捷的 lazy 委托：给 [Page] 提供一个 Mavericks ViewModel，作用域绑在
+ * **宿主 Activity 的** ViewModelStore 上（配置变更后会自动恢复），
+ * 但 key 是 `pageId::ViewModelClass`，所以每个 Page 拿到的都是自己那份实例。
  *
- * Why store the VM on the host rather than the Page itself?
- *  - Pages do not survive configuration changes (the framework
- *    re-builds them via `assemble {}`), but their ViewModels must.
- *  - Mavericks' built-in machinery for `@PersistState` and SavedState
- *    integration assumes an `Activity` / `Fragment` ViewModelContext —
- *    delegating to the host keeps us inside that supported envelope.
+ * 为什么 VM 存在宿主上而不是 Page 自己上？
+ *  - Page 不会跨配置变更存活（框架会通过 `assemble {}` 重建它），但它的 ViewModel
+ *    必须要存活下来。
+ *  - Mavericks 内置的 `@PersistState` 和 SavedState 集成机制都假设 ViewModelContext
+ *    是 `Activity` / `Fragment`——委托给宿主可以让我们一直待在它支持的范围内。
  *
- * Trade-off: when an [Assembly] is `replace()`d at runtime, the
- * detached Page's ViewModel stays in the host store until the host
- * itself is destroyed. For the typical case (assembly lives for the
- * full Activity lifetime) this is fine. A future iteration can expose
- * `Assembly.clearViewModels()` to evict them eagerly.
+ * 取舍：当 [Assembly] 在运行时被 `replace()` 之后，已经摘下来的 Page 的 ViewModel
+ * 仍然会留在宿主的 store 里，直到宿主自己被销毁。对于典型场景（assembly 的生命周期
+ * 等于整个 Activity）这没问题。后续迭代可以加一个 `Assembly.clearViewModels()`
+ * 用来主动清理。
  *
- * Usage:
+ * 用法：
  * ```kotlin
  * class LoginBodyPage : ViewPage() {
  *     private val viewModel: LoginBodyViewModel by pageViewModel()
@@ -37,7 +34,7 @@ import com.airbnb.mvrx.MavericksViewModelProvider
  * ```
  */
 inline fun <reified VM : MavericksViewModel<S>, reified S : MavericksState> Page.pageViewModel(
-    /** Override the storage key. Defaults to `{pageId}::{VM class name}`. */
+    /** 覆盖存储 key。默认是 `{pageId}::{VM 类名}`。 */
     noinline keyFactory: () -> String = { "$pageId::${VM::class.java.name}" },
 ): Lazy<VM> = lazy(LazyThreadSafetyMode.NONE) {
     val activity = activityOrNull(this)
@@ -56,13 +53,12 @@ inline fun <reified VM : MavericksViewModel<S>, reified S : MavericksState> Page
     )
 }
 
-// ---- internal helpers (kept here to avoid leaking `context` accessor) ----
+// ---- 内部 helper（放在这里是为了不泄露 `context` 访问器） ----
 
 @PublishedApi
 internal fun pageHostOrNull(page: Page): PageHost? = try {
-    // Reflective-free fast path: PageContext is package-private to the framework
-    // and the `context` property is `protected`; we expose hostOrNull via a
-    // friend-style trampoline on Page itself.
+    // 无反射的快速通道：PageContext 在框架内是 package-private，`context` 属性是 `protected`；
+    // 我们通过 Page 自己上的一个 friend 风格的 trampoline 暴露 hostOrNull。
     page.hostOrNullInternal()
 } catch (t: Throwable) {
     null
