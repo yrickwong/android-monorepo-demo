@@ -5,18 +5,19 @@ import android.view.ViewGroup
 import com.demo.foundations.assemblekit.PageContext
 
 /**
- * [ListPage] 内单个 row 的渲染契约。
+ * Renderer contract for a single row inside a [ListPage].
  *
- * `ItemBinder<T>` 故意**不是**另一个 [com.demo.foundations.assemblekit.Page]：
- * 一个上千行的 feed 不应该为之付出上千个 lifecycle owner、上千个 Mavericks ViewModel
- * 或者上千条 scoped event bus 的代价。
+ * `ItemBinder<T>` is intentionally **not** another [com.demo.foundations.assemblekit.Page]:
+ * a thousand-row feed should not pay for a thousand lifecycle owners,
+ * a thousand Mavericks ViewModels or a thousand scoped event buses.
  *
- * 相反，row 是 "context 透明" 的：它们共享所属 [ListPage] 的 [PageContext]，
- * 也就是说外层屏幕 provide 过的任何东西——repository、点击事件桥、主题 token——
- * 它们都可以通过 [PageContext.consume] / [PageContext.requireConsume] 直接拿到，
- * 调用方不必把参数一层层往下钻。
+ * Instead, rows are "context-transparent": they share the [PageContext]
+ * of their parent [ListPage], which means they can reach anything the
+ * outer screen has provided — repositories, click bridges, theme tokens —
+ * via [PageContext.consume] / [PageContext.requireConsume] without the
+ * caller having to drill parameters down through every callsite.
  *
- * 典型用法：
+ * Typical usage:
  * ```kotlin
  * val NoteRepoKey = pageContextKey<NoteRepository>("note-repo")
  *
@@ -32,43 +33,49 @@ import com.demo.foundations.assemblekit.PageContext
  * }
  * ```
  *
- * 实现应当是 **无状态** 的——任何 per-row 的状态都应该放在 [T] 本身里，
- * 或者放在通过 context 暴露的 repository 里。框架会让同一个 [ItemBinder]
- * 实例跨多个 position、跨多次 [ListPage] 重绑复用；不要在 binder 上缓存 view 引用。
+ * Implementations are expected to be **stateless** — any per-row state
+ * belongs in [T] itself or in the repository surfaced through the context.
+ * The framework will reuse a single [ItemBinder] instance across many
+ * positions and across [ListPage] re-binds; do not cache view references
+ * on the binder.
  */
 interface ItemBinder<T> {
 
     /**
-     * inflate / 构建 row [View]。每个 RecyclerView viewHolder 只会被调一次；
-     * 框架会缓存返回值。
+     * Inflate / build the row [View]. Called once per RecyclerView
+     * viewHolder; the framework caches the result.
      *
-     * 不要把 view attach 到 [parent] 上；框架会用 ViewHolder 包一层，
-     * 然后让 RecyclerView 自己去管理 attach。
+     * Do not attach the view to [parent]; the framework will wrap it in
+     * a ViewHolder and let RecyclerView manage attachment.
      */
     fun createView(parent: ViewGroup, ctx: PageContext): View
 
     /**
-     * 把 [item] 数据绑定到 [view] 上。每次 row 展示或底层 item 变化时都会被调。
-     * [position] 是绑定时的 adapter position——不要缓存。
+     * Bind [item] data into [view]. Called whenever the row is shown or
+     * the underlying item changes. [position] is the row's adapter
+     * position at bind time — do not cache it.
      */
     fun bind(view: View, item: T, position: Int, ctx: PageContext)
 
     /**
-     * row 永久离场（RecyclerView 的 `onViewRecycled`）时的可选清理。
-     * 默认空实现足以覆盖 binder 只设 text / image 的常见场景。
+     * Optional teardown when the row leaves the screen permanently
+     * (RecyclerView's `onViewRecycled`). Default no-op covers the
+     * common case where binders only set text / images.
      */
     fun unbind(view: View) = Unit
 
     /**
-     * DiffUtil 钩子：两条数据是不是*同一行*？默认是 `==`，当 [T] 有稳定身份
-     * （比如按 id 的 data class）时是正确的。如果想表达 "同一个实体的两个快照"，
-     * 请覆写。
+     * DiffUtil hook: are these the *same logical row*? Defaults to
+     * `==` which is correct when [T] has a stable identity (e.g. a
+     * data class keyed by id). Override for "two snapshots of the same
+     * entity" semantics.
      */
     fun areItemsTheSame(old: T, new: T): Boolean = old == new
 
     /**
-     * DiffUtil 钩子：两份快照渲染出来是不是一样？默认是 `==`。
-     * 当 [T] 带有 row 并不展示的字段、又想跳过不必要的重绑时请覆写。
+     * DiffUtil hook: do these two snapshots render identically? Defaults
+     * to `==`. Override when [T] carries fields the row does not display
+     * and you want to skip needless re-binds.
      */
     fun areContentsTheSame(old: T, new: T): Boolean = old == new
 }

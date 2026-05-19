@@ -16,41 +16,47 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * 一个 [ViewPage]，底层用一个 [ItemBinder] + 一个 RecyclerView，渲染一个同构的
- * [T] 列表。
+ * A [ViewPage] that renders a homogeneous list of [T] using a single
+ * [ItemBinder] and a RecyclerView under the hood.
  *
- * 为什么把这个放在框架里（而不是 "你在自己的 Page 里直接用 RecyclerView"）：
+ * Why this lives in the framework (instead of "just use RecyclerView
+ * in your own Page"):
  *
- *  - **Context 透明性**。binder 拿到的是*父 Page 的* [PageContext]，
- *    所以外层 `assemble { }` 里 `provides(...)` 的任何东西，每个 row 都能通过
- *    `ctx.consume(key)` 直接看到。不用再把 repository 塞进 Page 构造函数、
- *    塞进 Adapter、再塞进 ViewHolder。
- *  - **Lifecycle 卫生**。row 的订阅和 itemsFlow 的 collector 都挂在 [pageScope] 上；
- *    detach（包括 [com.demo.foundations.assemblekit.Assembly.replace]）时一次性
- *    全部取消——不会有 observer 跨 recomposition 泄漏。
- *  - **没有嵌套 Page**。每个 row 都只是一个普通 [View]，不是 Page。一个 1000 行的 feed
- *    不会分配出 1000 个 lifecycle owner / ViewModel / scoped bus。
+ *  - **Context transparency**. The binder receives the *parent Page's*
+ *    [PageContext], so any `provides(...)` from the surrounding
+ *    `assemble { }` is visible to every row via `ctx.consume(key)`.
+ *    No more passing a repository into a Page constructor just to pass
+ *    it into an Adapter just to pass it into a ViewHolder.
+ *  - **Lifecycle hygiene**. Item subscriptions and the items-flow
+ *    collector are tied to [pageScope]; on detach (including
+ *    [com.demo.foundations.assemblekit.Assembly.replace]) everything
+ *    is cancelled in one shot — no observers leak across recompositions.
+ *  - **No nested Pages**. Each row is a plain [View], not a Page. A
+ *    1000-row feed does not allocate 1000 lifecycle owners, ViewModels
+ *    or scoped buses.
  *
- * 例子：
+ * Example:
  * ```kotlin
  * class NotesListPage(
  *     itemsFlow: Flow<List<Note>>,
  * ) : ListPage<Note>(itemsFlow = itemsFlow, itemBinder = NoteItemBinder())
  *
- * // 在 assemble { } 里：
+ * // in assemble { }:
  * provides(NoteRepoKey, repo)
  * +NotesListPage(repo.notes)
  * ```
  *
- * 异构列表（"这里是 text card，那里是 image card"）在 v2 里故意没纳入范围——
- * 要么把两个 `ListPage` 拼起来，要么等后面的 `MultiTypeListPage`。
+ * Heterogeneous lists ("text card here, image card there") are
+ * intentionally out of scope for v2 — compose two `ListPage` instances,
+ * or wait for a future `MultiTypeListPage`.
  *
- * @param itemsFlow 列表的响应式数据源。每次 emit 都会通过 [ItemBinder.areItemsTheSame] /
- *   [ItemBinder.areContentsTheSame] 与上一次 diff。collector 挂在 [pageScope] 上，
- *   并使用 `collectLatest`，所以慢的上游不会把帧堆积起来。
- * @param itemBinder 每个 row 如何渲染。见 [ItemBinder]。
- * @param layoutManagerFactory 如果需要 GridLayoutManager、横向滚动等请覆写。
- *   默认是纵向 [LinearLayoutManager]。
+ * @param itemsFlow Reactive source of the list. Each emission is diffed
+ *   against the previous one via [ItemBinder.areItemsTheSame] /
+ *   [ItemBinder.areContentsTheSame]. The collector lives on [pageScope]
+ *   and uses `collectLatest`, so a slow upstream cannot pile up frames.
+ * @param itemBinder How to render each row. See [ItemBinder].
+ * @param layoutManagerFactory Override if you need GridLayoutManager,
+ *   horizontal scrolling, etc. Default: vertical [LinearLayoutManager].
  */
 open class ListPage<T>(
     private val itemsFlow: Flow<List<T>>,
@@ -65,9 +71,9 @@ open class ListPage<T>(
     private var adapter: BinderAdapter<T>? = null
 
     final override fun onCreateView(inflater: LayoutInflater, parent: ViewGroup): View {
-        // 把父 Page 的 PageContext 在 `apply` 块外面捕获——
-        // 进了 `apply` 块以后，`context` 解析成的是 View.getContext()（一个 Android Context），
-        // 那不是我们想交给 ItemBinder 的东西。
+        // Capture the parent Page's PageContext outside the `apply` block —
+        // inside it, `context` resolves to View.getContext() (an Android Context),
+        // which is not what we want to hand to the ItemBinder.
         val pageCtx: PageContext = context
         val rv = RecyclerView(parent.context).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -75,7 +81,7 @@ open class ListPage<T>(
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
             layoutManager = layoutManagerFactory(parent)
-            // 共享一个稳定的 adapter，这样 DiffUtil 才能跨多次 emit 正常工作。
+            // Stable shared adapter so DiffUtil can do its job across emissions.
             adapter = BinderAdapter(itemBinder, pageCtx).also { this@ListPage.adapter = it }
         }
         recyclerView = rv
@@ -85,8 +91,9 @@ open class ListPage<T>(
     final override fun onViewCreated(view: View) {
         val adapter = adapter ?: return
         pageScope.launch {
-            // collectLatest：如果上一次的 DiffUtil 还在算，新的 list 就到了，
-            // 直接把旧的那帧丢掉。屏幕上显示的永远是最新的那一次 emit。
+            // collectLatest: if a new list arrives while DiffUtil is still
+            // crunching the previous one, drop the older frame. The visible
+            // truth always reflects the most recent emission.
             itemsFlow.collectLatest { items ->
                 try {
                     adapter.submitList(items)
@@ -98,8 +105,9 @@ open class ListPage<T>(
     }
 
     final override fun onDestroyView() {
-        // 在 RecyclerView 本身被丢之前先把 adapter 引用清掉，避免在
-        // Assembly.replace 之间把 items 列表 / context 一直钉在内存里。
+        // Drop the adapter reference before the RecyclerView itself is
+        // discarded so we don't keep the items list / context pinned in
+        // memory between Assembly.replace cycles.
         recyclerView?.adapter = null
         recyclerView = null
         adapter = null
@@ -112,11 +120,11 @@ open class ListPage<T>(
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BinderViewHolder {
             val rowView = binder.createView(parent, parentCtx)
-            // 给 row 根节点打上父 Page 的 PageContext tag。
-            // 正是这个魔法，能让 row 内部嵌套了三层的自定义 View——
-            // 或者 row 内层 RecyclerView 的 ViewHolder——调一下
-            // `view.findPageContext()`，就能拿到与 binder 看到的同一个
-            // Shell VM，全程不用一层层往下传参数。
+            // Stamp the row root with the parent Page's PageContext.
+            // This is the magic that lets a nested custom view 3 layers
+            // deep inside the row — or an inner RecyclerView's
+            // ViewHolder — call `view.findPageContext()` and reach the
+            // same Shell VM the binder sees, without parameter drilling.
             rowView.setPageContext(parentCtx)
             return BinderViewHolder(rowView)
         }
