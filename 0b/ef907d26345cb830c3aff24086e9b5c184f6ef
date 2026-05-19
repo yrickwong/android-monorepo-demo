@@ -1,0 +1,22 @@
+docs/architecture.md
+  s_f7d26586b0212b::t_0dbe1b4b7368c9 395-407
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Assembly.kt
+  s_f7d26586b0212b::t_fa5b9a79ebf3b0 184-206
+  s_f7d26586b0212b::t_80383c63c9bfeb 308-325,333
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "0bef907d26345cb830c3aff24086e9b5c184f6ef",
+  "prompts": {},
+  "sessions": {
+    "s_f7d26586b0212b": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "b87b6fdd-ac87-4cb4-922a-83d634a0c304",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
