@@ -392,6 +392,19 @@ class NoteActionBar(ctx: Context, attrs: AttributeSet?) : LinearLayout(ctx, attr
 > **已经在 v2.1 落地**：异构列表（`MultiTypeListPage<T>` + 类型路由）、重布局异步 inflate（`AsyncViewPage` + `AsyncLayoutInflater`）。Shell VM 在单屏功能堆叠后体积失控的拆分指南见 [`docs/sharding-shell-vm.md`](sharding-shell-vm.md)。
 >
 > **v2.2 已落地**：Compose 真实接入——[`:foundations:assemblekit-compose`](../foundations/assemblekit-compose/README.md) 模块提供 `ComposablePage`，与 `ViewPage` / `AsyncViewPage` 互为平级；通过 `LocalPageContext`（`CompositionLocal<PageContext?>`）把 `PageContext` 桥进 Composable，Composable 端用 `composeRequireConsume(XxxShellViewModelKey)` 拿到 Shell VM——跟 View 世界 `view.requirePageContext().requireConsume(...)` 完全同构。`Page.materialize()` 同步从 `internal abstract` 放宽到 `protected abstract`，原因是 Kotlin `internal` 跨 Gradle module 不能 override（详见 [`Page.kt`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt) 内的注释）。Compose 编译器扩展、BOM 与 `mavericks-compose` 通过 `demo.android.foundation.compose` convention plugin 集中管理，**不写 Compose 的模块**（`:bizlibs:*` 全部、`:features:*` 走 XML 的 page）**不引入任何 Compose 依赖**，编译时间无回退。
+>
+> **v2.3 已落地：Page LayoutParams 语义修正**——`Assembly.attachPage` 不再无条件覆盖 Page root view 的 `LayoutParams`。新策略两条：
+>
+> 1. **尊重既有 LP**：如果 `view.layoutParams != null`（XML `inflate(parent, false)` 产物、或 Page 在 `onCreateView` 里 `apply { layoutParams = ... }` 自己设置），框架直接 `addView(view)`，不再踩你的尺寸。
+> 2. **兜底 default 按容器类型分流**：仅当 `view.layoutParams == null` 时启用，且 default 按挂载目标区分——
+>    - **LinearLayout（stack 模式）**：`MATCH × WRAP`，每个 Page 是栈里的一格（沿用历史行为）。
+>    - **非 LinearLayout（slot 模式，FrameLayout / ConstraintLayout 等）**：从 `MATCH × WRAP` 改为 `MATCH × MATCH`，把槽位填满。
+>
+> 修复背景：早期版本对所有容器一律用 `MATCH × WRAP` 兜底**并且覆盖** Page 自己写的 LP。对于 `SwipeRefreshLayout` / `LinearLayoutManager` 这种支持 auto-measure 的 root 没有可观察症状；但当 Page root 是裸 `RecyclerView + StaggeredGridLayoutManager`（`isAutoMeasureEnabled() = false`）时，`WRAP_CONTENT` + `AT_MOST` 链路下高度直接坍缩成 0、整页空白。典型受害者是 [`ProfileContentPage`](../features/mainframe/src/main/java/com/demo/features/mainframe/pages/profile/ProfileContentPage.kt) —— 它显式 `MATCH × MATCH` 创建 RV 却被框架默默改回 `WRAP`，是触发本次修复的真实 case。
+>
+> 对现有业务的影响：**零回归**。本仓库所有现有 Page 要么走 XML `inflate(parent, false)`（LP 由 parent 类型生成，与历史等价），要么 `ListPage` / `MultiTypeListPage` / `AsyncViewPage` 在 `onCreateView` 里显式 setLayoutParams（v2.3 后才真正生效，但既往的 `WRAP` 覆盖在 auto-measure LM 下视觉上恰好等同 `MATCH`）。新规则只在"未来某个 Page 自己程序化创建 root view 且忘记设 LP"的兜底路径上才偏离历史——而那个路径上 slot 模式选 `MATCH × MATCH` 才是符合直觉的选择。
+>
+> 编码约定：**Page 想要什么尺寸，直接在 `onCreateView` 的返回 view 上 `setLayoutParams(...)`，框架会原样采纳**；不需要再对抗框架的强制 `WRAP`。
 
 #### 容器层 vs 内容层：`:foundations:slidepane` 与 AssembleKit 的正交关系
 
