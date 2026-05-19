@@ -121,16 +121,19 @@ dependencies {
 | --- | --- |
 | `:features:login → :foundations:assemblekit` | feature → foundation，规则允许 |
 | `:features:feed  → :foundations:assemblekit` | 同上：feed 作为 AssembleKit v2 综合 demo，依赖框架核心 |
+| `:features:mainframe → :foundations:assemblekit` | 三屏滑动主框架的 Pane 内容层全部用 AssembleKit 装配，依赖框架核心 |
+| `:features:mainframe → :foundations:slidepane`   | 三屏滑动主框架的容器层（`SlidePaneContainer` + `PaneProvider` SPI），与 AssembleKit 正交 |
 | `:foundations:assemblekit → :foundations:common` | foundation 内部互相依赖，允许 |
 | `:foundations:assemblekit → :third-party:logger`  | foundation → third-party，允许 |
 | `:foundations:assemblekit → androidx.recyclerview` | 第三方库，外部依赖（不在分层校验范围） |
 | `:foundations:assemblekit-compose → :foundations:assemblekit` | foundation 内部依赖：Compose 桥模块以 `api` 暴露 base 模块的 `Page` / `PageContext` 给业务侧 |
 | `:foundations:assemblekit-compose → androidx.compose.*` / `com.airbnb.android:mavericks-compose` | 第三方库，外部依赖（不在分层校验范围）。Compose BOM 与编译器扩展由 [`demo.android.foundation.compose`](../build-logic/convention/src/main/kotlin/com/demo/monorepo/buildlogic/AndroidFoundationComposeConventionPlugin.kt) 集中管理 |
+| `:foundations:slidepane → androidx.customview` | 第三方库（`ViewDragHelper`），外部依赖；slidepane 是纯容器，不依赖 assemblekit，刻意保持两个框架在依赖图上完全解耦 |
 | `:features:* → :foundations:assemblekit-compose` | feature → foundation，规则允许；按需引入——只在该 feature 里写了 `ComposablePage` 时才加这条依赖，未用 Compose 的 feature 不要拉进来 |
 | `:app → :foundations:assemblekit` | app 是组合根，可以依赖任何模块 |
-| `:app → :features:feed` | app 是唯一允许依赖 `:features:*` 的模块 |
+| `:app → :features:feed` / `:features:mainframe` | app 是唯一允许依赖 `:features:*` 的模块 |
 
-> `:features:home` 上加 `Open Feed` 按钮时**不需要**依赖 `:features:feed`——通过 `Router.navigate(this, Router.Paths.FEED)` 跳转，跨 feature 跳转一律走路由层，这是 `checkDependencyRules` 仍然 OK 的关键。
+> `:features:home` 上加 `Open Feed` / `Open Mainframe` 按钮时**不需要**依赖 `:features:feed` / `:features:mainframe`——通过 `Router.navigate(this, Router.Paths.FEED)` / `Router.Paths.MAINFRAME` 跳转，跨 feature 跳转一律走路由层，这是 `checkDependencyRules` 仍然 OK 的关键。
 
 新增 foundation 模块时，按上面这几条对照即可——既不需要改 `CheckDependencyRulesTask`，也不需要在这份文档里追加新规则。
 

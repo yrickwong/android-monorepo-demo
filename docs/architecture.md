@@ -17,6 +17,7 @@
 |  :app                       (composition root, 应用壳)          |
 +-----------------------------------------------------------------+
 |  :features:login   :features:home   :features:profile           |
+|  :features:feed    :features:mainframe                          |
 +-----------------------------------------------------------------+
 |  :bizlibs:account   :bizlibs:user                               |
 +-----------------------------------------------------------------+
@@ -25,6 +26,7 @@
 |  :foundations:communicate (SPI: feature/bizlib ↔ app 反向通信)    |
 |  :foundations:assemblekit (Page / Assembly DSL · Mavericks MVI)   |
 |  :foundations:assemblekit-compose (可选 · Compose 渲染桥 · 见 §AssembleKit v2.2)|
+|  :foundations:slidepane (水平三槽位滑动容器 · 与 assemblekit 正交)  |
 +-----------------------------------------------------------------+
 |  :third-party:logger                                            |
 +-----------------------------------------------------------------+
@@ -56,11 +58,12 @@ LoginActivity (:features:login)
         ▼  Router.navigate(HOME)
 HomeActivity (:features:home)
         │   UserRepository.loadCurrentUser()  ← :bizlibs:user
-        ▼  Router.navigate(PROFILE)
-ProfileActivity (:features:profile)
+        ├── Router.navigate(PROFILE) ─▶ ProfileActivity (:features:profile)
+        ├── Router.navigate(FEED)    ─▶ FeedActivity    (:features:feed)         AssembleKit v2 综合 demo
+        └── Router.navigate(MAINFRAME)─▶ MainActivity   (:features:mainframe)    SlidePane + AssembleKit 三屏滑动主框架 demo
 ```
 
-> **要点：** Login → Home → Profile 之间的跳转**不**通过相互依赖，而是通过 `:foundations:router` 实现的字符串路由。这让“`:features:*` 不能依赖其他 `:features:*`”这条规则在编译期和 `checkDependencyRules` 任务里都能被守住。
+> **要点：** Login / Home / Profile / Feed / Mainframe 之间的跳转**不**通过相互依赖，而是通过 `:foundations:router` 实现的字符串路由（`Router.Paths` 是跨 feature 导航的唯一契约）。这让“`:features:*` 不能依赖其他 `:features:*`”这条规则在编译期和 `checkDependencyRules` 任务里都能被守住。新增一个 feature 入口的标准动作就是：在 `Router.Paths` 加 `const val`，在 `:app` 的 `DemoApp.onCreate` 里 `Router.register(...)` 一次，调用方写 `Router.navigate(this, Router.Paths.X)`。
 
 ## 工程治理能力
 
@@ -390,6 +393,48 @@ class NoteActionBar(ctx: Context, attrs: AttributeSet?) : LinearLayout(ctx, attr
 >
 > **v2.2 已落地**：Compose 真实接入——[`:foundations:assemblekit-compose`](../foundations/assemblekit-compose/README.md) 模块提供 `ComposablePage`，与 `ViewPage` / `AsyncViewPage` 互为平级；通过 `LocalPageContext`（`CompositionLocal<PageContext?>`）把 `PageContext` 桥进 Composable，Composable 端用 `composeRequireConsume(XxxShellViewModelKey)` 拿到 Shell VM——跟 View 世界 `view.requirePageContext().requireConsume(...)` 完全同构。`Page.materialize()` 同步从 `internal abstract` 放宽到 `protected abstract`，原因是 Kotlin `internal` 跨 Gradle module 不能 override（详见 [`Page.kt`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt) 内的注释）。Compose 编译器扩展、BOM 与 `mavericks-compose` 通过 `demo.android.foundation.compose` convention plugin 集中管理，**不写 Compose 的模块**（`:bizlibs:*` 全部、`:features:*` 走 XML 的 page）**不引入任何 Compose 依赖**，编译时间无回退。
 
+#### 容器层 vs 内容层：`:foundations:slidepane` 与 AssembleKit 的正交关系
+
+业务上"主框架三屏滑动（中间 Home / 左滑 Profile / 右滑 Messages）"是个高度容易把容器和内容耦在一起的场景。Demo 里把它拆成两个互不依赖的框架：
+
+| 层 | 模块 | 职责 | 跟 AssembleKit 的关系 |
+| --- | --- | --- | --- |
+| 容器层 | [`:foundations:slidepane`](../foundations/slidepane) | `SlidePaneContainer`（`FrameLayout` + `ViewDragHelper`）做水平拖拽 + 视差/蒙层动画，`PaneProvider` SPI 描述"我是哪个槽（CENTER/START/END）、我提供哪个 Fragment"，`PaneRegistry` 注册 / 查询 | **完全无关**——不依赖 `:foundations:assemblekit`，也不假设 Pane 内容怎么实现（XML 直出、自家 MVVM、Compose 都可以） |
+| 内容层 | [`:features:mainframe`](../features/mainframe) | 三个 Pane 各自是一个 `PageHostFragment`，内部用 `assemble {}` 把若干 Page 装到布局的多个槽位 | **完全 AssembleKit 范式**——每个 Pane 一个 Shell VM，所有 Page 通过 `requireConsume(XxxShellViewModelKey)` 拿同一个 VM |
+
+```
+SlidePaneContainer                ← :foundations:slidepane（容器层）
+  ├── CENTER  : HomePaneHostFragment      ┐
+  ├── START   : ProfilePaneHostFragment   ├─ 每个都是 PageHostFragment（:foundations:assemblekit）
+  └── END     : MessagesPaneHostFragment  ┘    内部 assemble {} + 一个 Shell VM
+```
+
+**关键设计：Pane → Activity 命令走 Actions 接口 + `hostLocal`**
+
+Pane 内部经常需要让宿主 Activity 做"非 Pane 自己能完成"的事——比如 Home Pane 的头像点击需要让 SlidePane 打开 Profile Pane。直接持有 `MainActivity` 引用会把 feature 耦死、也违反"feature 不应该知道容器细节"的边界。Demo 采取的方案是：
+
+1. `:features:mainframe` 里声明三个细粒度接口：`HomePaneActions` / `ProfilePaneActions` / `MessagesPaneActions`，每个接口只暴露**业务意图**（`requestOpenProfile()` / `requestCloseProfile()` / `addScrollDirectionListener(...)`），不出现 `SlidePane` 字样。
+2. 同级再声明 3 个 `PageContextKey<XxxPaneActions>`（即 `MainframeActionKeys.kt`），供 Page 侧 `requireConsume(...)` 取用。
+3. `XxxPaneHostFragment.onAttach` 里把 `context as XxxPaneActions` 写进自己的 `hostLocal[XxxPaneActionsKey]`，子 Page 通过 `requireConsume(XxxPaneActionsKey)` 拿。
+4. `MainActivity` 实现这 3 个接口，方法体里翻译成 `SlidePaneContainer.openSlot(PaneSlot.START)` / `closeAll()` / `addScrollDirectionListener(...)` 等容器调用。
+
+这样：
+
+- Pane 不知道 SlidePane 的存在（只知道 Actions 接口）。
+- SlidePane 不知道 AssembleKit 的存在（只知道 `PaneProvider` 给个 Fragment）。
+- 容器策略改用别的（比如换成 `ViewPager2`），Pane 实现一行不动；Pane 改用别的 UI 范式（Compose / 自家 MVVM），SlidePane 也一行不动。
+
+**Page 抽象选择按需要走，不要框架化**：mainframe 的 Pages 在三种 `Page` 子类里按需选择，没有"必须全用 ListPage"这种铁律——
+
+| Page | 选哪个 | 原因 |
+| --- | --- | --- |
+| `HomeTopBarPage` / `HomeBottomBarPage` / `ProfileTopBarPage` / `MessagesTopBarPage` | `ViewPage` | 普通静态布局 |
+| `HomeTabsPage` | `ListPage<HomeTabRow>` + `HomeTabBinder` | 单类型水平 tab 列表，正是 `ListPage` 的甜区 |
+| `HomeFeedPage` / `ProfileContentPage` | 自定义 `ViewPage` 包 `RecyclerView` | 需要 `SwipeRefreshLayout` 外壳 + `StaggeredGridLayoutManager(2)` + 行 `isFullSpan` + 动态列宽——`ListPage`/`MultiTypeListPage` 故意让 `onCreateView`/`onViewCreated` 是 `final` 不允许定制布局，这种"列表 + 框 + 调参"的复合需求**应当**走自定义 `ViewPage`，框架不为它开特殊口子（防止 ListPage 沦为 god class）|
+| `MessagesListPage` | `MultiTypeListPage<MessageRow>` | 信息流里 `Section`（"通知" / "私信"标题行）和 `Entry`（具体消息行）两种行混排——`MultiTypeListPage` 的标准甜区案例 |
+
+Page 维度的"选择题"留在业务侧，是 AssembleKit v2 拆分 `ListPage` / `MultiTypeListPage` / `ViewPage` / `AsyncViewPage` / `ComposablePage` 这一组平级抽象的目的本身。`:features:mainframe` 五种用法各占一类（含两个"框架不直接覆盖、必须走自定义 ViewPage"的真实案例），是这套抽象选型是否够用的活体证据。
+
 ### 2. 依赖边界校验
 
 `./gradlew checkDependencyRules` 遍历所有子模块的声明依赖（`api` / `implementation` / `compileOnly` / `runtimeOnly` / `testImplementation` / `androidTestImplementation` / `debugImplementation` / `releaseImplementation`），按规则表逐项校验，违反即抛 `GradleException` 并列出所有违规边。
@@ -429,10 +474,13 @@ monorepo-demo/
 ├── app/                        # 应用壳
 ├── features/                   # 业务 feature
 │   ├── login/                  # 经典 assemble { } 三段式（v1 标准案例）
-│   ├── home/                   # SPI 演示 + Router 入口（含 "Open Feed"）
+│   ├── home/                   # SPI 演示 + Router 入口（含 "Open Feed" / "Open Mainframe"）
 │   ├── profile/
-│   └── feed/                   # AssembleKit v2 综合演示：
-│                               #   ListPage + provides/consume + at() + replace
+│   ├── feed/                   # AssembleKit v2 综合演示：
+│   │                           #   ListPage + provides/consume + at() + replace
+│   └── mainframe/              # SlidePane + AssembleKit 三屏滑动主框架综合演示：
+│                               #   3 个 PageHostFragment / 3 个 Shell VM / 5 种 Page 用法
+│                               #   (ViewPage / ListPage / MultiTypeListPage / 自定义 ViewPage 含 RecyclerView)
 ├── bizlibs/                    # 业务库
 │   ├── account/
 │   └── user/
@@ -449,8 +497,10 @@ monorepo-demo/
 │   │                           #     ListPage / MultiTypeListPage
 │   │                           #     + scoped locals (provides/consume)
 │   │                           #     + per-page at(R.id) + Assembly.replace { }
-│   └── assemblekit-compose/    # 可选 · Compose 桥：ComposablePage + LocalPageContext
-│                               # 不写 Compose 的模块零成本不依赖
+│   ├── assemblekit-compose/    # 可选 · Compose 桥：ComposablePage + LocalPageContext
+│   │                           # 不写 Compose 的模块零成本不依赖
+│   └── slidepane/              # 水平三槽位滑动容器（SlidePaneContainer + PaneProvider SPI）
+│                               # 与 :foundations:assemblekit 正交、互不依赖
 ├── third-party/                # 三方 / 适配
 │   └── logger/
 ├── build-logic/                # Convention plugins（独立 included build）

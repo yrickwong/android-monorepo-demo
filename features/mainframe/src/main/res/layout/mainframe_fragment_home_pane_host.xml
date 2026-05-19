@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    HomePaneHostFragment 的容器布局（AssembleKit Host 的 root view）。
+
+    布局只提供 4 个槽位 + 1 个状态栏 inset 占位，由 4 个 Page 各自填充：
+      slot_top_bar      ← HomeTopBarPage    (ViewPage, inflate page_home_top_bar.xml)
+      slot_tabs         ← HomeTabsPage      (ListPage<String>, 水平 LinearLayoutManager)
+      slot_feed         ← HomeFeedPage      (ViewPage, SwipeRefresh + StaggeredGridLayoutManager)
+      slot_bottom_bar   ← HomeBottomBarPage (ViewPage, inflate page_home_bottom_bar.xml)
+
+    与原 fragment_home_pane.xml 的差异：原文件把所有控件直接画在一张 ConstraintLayout
+    里；这里改成 ConstraintLayout + 4 个 FrameLayout 槽位，结构定位完全一致。
+
+    注意 slot_tabs 上的 paddingHorizontal/paddingVertical/clipToPadding —— 原本设在
+    RecyclerView 上，因为 ListPage 自己创建 RV 不接受这些属性，所以下移到 slot 上，
+    视觉上等价。
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
+
+    <!-- 状态栏 inset 占位：由 Fragment 在 onViewCreated 中根据 WindowInsets 动态设置高度 -->
+    <View
+        android:id="@+id/mainframe_home_top_bar_inset"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@android:color/transparent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <FrameLayout
+        android:id="@+id/mainframe_home_slot_top_bar"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/mainframe_top_bar_height"
+        app:layout_constraintTop_toBottomOf="@id/mainframe_home_top_bar_inset"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <FrameLayout
+        android:id="@+id/mainframe_home_slot_tabs"
+        android:layout_width="0dp"
+        android:layout_height="44dp"
+        android:clipToPadding="false"
+        android:paddingHorizontal="@dimen/mainframe_space_md"
+        android:paddingVertical="6dp"
+        app:layout_constraintTop_toBottomOf="@id/mainframe_home_slot_top_bar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <FrameLayout
+        android:id="@+id/mainframe_home_slot_feed"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/mainframe_home_slot_tabs"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <FrameLayout
+        android:id="@+id/mainframe_home_slot_bottom_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/mainframe_space_md"
+        android:layout_marginBottom="@dimen/mainframe_space_md"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>

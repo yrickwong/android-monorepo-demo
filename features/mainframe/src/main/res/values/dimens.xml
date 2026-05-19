@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 通用 -->
+    <dimen name="mainframe_space_xs">4dp</dimen>
+    <dimen name="mainframe_space_sm">8dp</dimen>
+    <dimen name="mainframe_space_md">12dp</dimen>
+    <dimen name="mainframe_space_lg">16dp</dimen>
+    <dimen name="mainframe_space_xl">24dp</dimen>
+
+    <!-- 顶部栏 -->
+    <dimen name="mainframe_top_bar_height">52dp</dimen>
+
+    <!-- Feed 流 -->
+    <dimen name="mainframe_feed_card_radius">10dp</dimen>
+    <dimen name="mainframe_feed_grid_spacing">6dp</dimen>
+
+    <!-- Profile -->
+    <dimen name="mainframe_profile_avatar_size">72dp</dimen>
+    <dimen name="mainframe_profile_header_height">220dp</dimen>
+
+    <!-- Messages -->
+    <dimen name="mainframe_msg_avatar_size">48dp</dimen>
+    <dimen name="mainframe_msg_item_height">72dp</dimen>
+</resources>

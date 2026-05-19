@@ -85,6 +85,15 @@ class HomeActivity : AppCompatActivity() {
             Router.navigate(this, Router.Paths.FEED)
         }
 
+        // Open the Mainframe module — a self-contained SlidePane + AssembleKit demo.
+        // Same router-only navigation pattern; no compile-time dependency on
+        // :features:mainframe from :features:home.
+        binding.goMainframe.setOnClickListener {
+            Analytics.logEvent("home_goto_mainframe_click")
+            Analytics.logNavigation(from = "home", to = "mainframe")
+            Router.navigate(this, Router.Paths.MAINFRAME)
+        }
+
         // ---- SPI demo #3: ILogoutService (action-style) -----------
         binding.logout.setOnClickListener {
             Analytics.logEvent("home_logout_click")

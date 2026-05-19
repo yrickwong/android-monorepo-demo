@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- 渐变背景头图 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:background="@drawable/mainframe_bg_profile_header" />
+
+    <!-- 头像 + 编辑按钮 -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-36dp"
+        android:paddingHorizontal="@dimen/mainframe_space_lg">
+
+        <View
+            android:id="@+id/mainframe_profile_avatar"
+            android:layout_width="@dimen/mainframe_profile_avatar_size"
+            android:layout_height="@dimen/mainframe_profile_avatar_size"
+            android:background="@drawable/mainframe_bg_avatar_placeholder" />
+
+        <TextView
+            android:id="@+id/mainframe_profile_btn_edit"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_gravity="end|bottom"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/mainframe_bg_edit_profile"
+            android:gravity="center"
+            android:paddingHorizontal="14dp"
+            android:text="@string/mainframe_profile_edit"
+            android:textColor="@color/mainframe_text_primary"
+            android:textSize="13sp" />
+    </FrameLayout>
+
+    <!-- 昵称 + 认证 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/mainframe_space_md"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/mainframe_space_lg">
+
+        <TextView
+            android:id="@+id/mainframe_profile_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/mainframe_text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/mainframe_space_sm"
+            android:text="✓"
+            android:textColor="@color/mainframe_red_primary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- 用户名 + 地区 -->
+    <TextView
+        android:id="@+id/mainframe_profile_handle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:paddingHorizontal="@dimen/mainframe_space_lg"
+        android:textColor="@color/mainframe_text_secondary"
+        android:textSize="13sp" />
+
+    <!-- 简介 -->
+    <TextView
+        android:id="@+id/mainframe_profile_bio"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/mainframe_space_sm"
+        android:paddingHorizontal="@dimen/mainframe_space_lg"
+        android:textColor="@color/mainframe_text_primary"
+        android:textSize="13sp" />
+
+    <!-- 数据栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/mainframe_space_lg"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/mainframe_space_lg">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="20dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/mainframe_profile_cnt_following"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/mainframe_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/mainframe_profile_following"
+                android:textColor="@color/mainframe_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="20dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/mainframe_profile_cnt_followers"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/mainframe_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/mainframe_profile_followers"
+                android:textColor="@color/mainframe_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/mainframe_profile_cnt_likes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/mainframe_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/mainframe_profile_likes"
+                android:textColor="@color/mainframe_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Notes / Collections Tab -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="@dimen/mainframe_space_lg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/mainframe_space_lg">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="20dp"
+            android:text="@string/mainframe_profile_tab_notes"
+            android:textColor="@color/mainframe_text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/mainframe_profile_tab_collections"
+            android:textColor="@color/mainframe_text_secondary"
+            android:textSize="14sp" />
+    </LinearLayout>
+</LinearLayout>

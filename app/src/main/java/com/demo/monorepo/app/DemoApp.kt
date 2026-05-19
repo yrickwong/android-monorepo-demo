@@ -5,6 +5,7 @@ import com.airbnb.mvrx.Mavericks
 import com.demo.features.feed.FeedActivity
 import com.demo.features.home.HomeActivity
 import com.demo.features.login.LoginActivity
+import com.demo.features.mainframe.MainActivity
 import com.demo.features.profile.ProfileActivity
 import com.demo.foundations.analytics.Analytics
 import com.demo.foundations.communicate.IAppEnv
@@ -50,6 +51,7 @@ class DemoApp : Application() {
         Router.register(Router.Paths.HOME, HomeActivity::class.java)
         Router.register(Router.Paths.PROFILE, ProfileActivity::class.java)
         Router.register(Router.Paths.FEED, FeedActivity::class.java)
+        Router.register(Router.Paths.MAINFRAME, MainActivity::class.java)
 
         // SPI: expose app-layer capabilities to lower layers without
         // forcing them to depend on `:app`. Implementations live here

@@ -42,6 +42,7 @@ dependencies {
     implementation(project(":features:home"))
     implementation(project(":features:profile"))
     implementation(project(":features:feed"))
+    implementation(project(":features:mainframe"))
 
     // third-party
     implementation(project(":third-party:logger"))

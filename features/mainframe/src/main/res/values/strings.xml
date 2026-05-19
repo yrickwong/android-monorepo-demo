@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 三屏滑动主框架（AssembleKit dogfood）的用户可见文案。
+         所有 key 加 mainframe_ 前缀避免与其它模块冲突。 -->
+    <string name="mainframe_title_home">rednote</string>
+    <string name="mainframe_title_messages">消息</string>
+
+    <string name="mainframe_cd_profile">个人页</string>
+    <string name="mainframe_cd_messages">消息</string>
+    <string name="mainframe_cd_compose">发布笔记</string>
+    <string name="mainframe_cd_voice">语音输入</string>
+    <string name="mainframe_cd_close">返回首页</string>
+    <string name="mainframe_cd_new_chat">发起会话</string>
+
+    <string name="mainframe_search_placeholder">Type or long press to ask</string>
+    <string name="mainframe_profile_edit">Edit profile</string>
+    <string name="mainframe_profile_following">Following</string>
+    <string name="mainframe_profile_followers">Followers</string>
+    <string name="mainframe_profile_likes">Likes &amp; Saves</string>
+    <string name="mainframe_profile_tab_notes">Notes</string>
+    <string name="mainframe_profile_tab_collections">🔒 Collections</string>
+</resources>

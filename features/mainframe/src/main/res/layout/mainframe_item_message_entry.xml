@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/mainframe_msg_item_height"
+    android:background="?attr/selectableItemBackground"
+    android:paddingHorizontal="@dimen/mainframe_space_lg">
+
+    <FrameLayout
+        android:id="@+id/mainframe_msg_avatar_wrap"
+        android:layout_width="@dimen/mainframe_msg_avatar_size"
+        android:layout_height="@dimen/mainframe_msg_avatar_size"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <View
+            android:id="@+id/mainframe_msg_avatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/mainframe_bg_avatar_placeholder" />
+
+        <TextView
+            android:id="@+id/mainframe_msg_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="18dp"
+            android:layout_gravity="end|top"
+            android:background="@drawable/mainframe_bg_red_dot"
+            android:gravity="center"
+            android:minWidth="18dp"
+            android:paddingHorizontal="5dp"
+            android:textColor="@color/mainframe_bg_primary"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="9" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/mainframe_msg_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/mainframe_space_md"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/mainframe_text_primary"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="@id/mainframe_msg_avatar_wrap"
+        app:layout_constraintStart_toEndOf="@id/mainframe_msg_avatar_wrap"
+        app:layout_constraintEnd_toStartOf="@id/mainframe_msg_timestamp" />
+
+    <TextView
+        android:id="@+id/mainframe_msg_subtitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginStart="@dimen/mainframe_space_md"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/mainframe_text_secondary"
+        android:textSize="13sp"
+        app:layout_constraintTop_toBottomOf="@id/mainframe_msg_title"
+        app:layout_constraintStart_toEndOf="@id/mainframe_msg_avatar_wrap"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/mainframe_msg_timestamp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/mainframe_text_tertiary"
+        android:textSize="12sp"
+        app:layout_constraintTop_toTopOf="@id/mainframe_msg_title"
+        app:layout_constraintBottom_toBottomOf="@id/mainframe_msg_title"
+        app:layout_constraintEnd_toEndOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            MainActivity：三屏滑动主框架的宿主。
+            它本身不是 PageHostActivity——它只持有 SlidePaneContainer，把 3 个 Pane 的
+            PageHostFragment 注入到 CENTER / START / END 三个槽位里，并实现
+            HomePaneActions / ProfilePaneActions / MessagesPaneActions 来"翻译"业务请求
+            到 SlidePane API 调用。
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+    </application>
+
+</manifest>
