@@ -45,6 +45,7 @@ include(":foundations:analytics")
 include(":foundations:ui")
 include(":foundations:communicate")
 include(":foundations:assemblekit")
+include(":foundations:assemblekit-compose")
 
 // :third-party:*
 include(":third-party:logger")

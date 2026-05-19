@@ -39,10 +39,21 @@ not "caught in review", not "trapped in tests", *impossible*.
 
 - Hosts extend [`PageHostActivity`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageHostActivity.kt)
   or implement [`PageHost`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageHost.kt).
-- Pages extend [`ViewPage`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewPage.kt)
-  today; once the Compose module ships, `ComposablePage` will be the
-  Compose equivalent. The XML-vs-Compose choice is **per page**, never
-  framework-wide.
+- Pages extend one of the three Page flavours, and the choice is
+  **per page**, never framework-wide:
+  - [`ViewPage`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewPage.kt)
+    — classic XML, synchronous inflate (the default).
+  - [`AsyncViewPage`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/AsyncViewPage.kt)
+    — XML, but inflated off the main thread via `AsyncLayoutInflater`;
+    see [`foundations/assemblekit/README.md` § 5.1](../foundations/assemblekit/README.md#51-asyncviewpagesrcmainjavacomdemofoundationsassemblekitasyncviewpagekt重布局异步-inflate)
+    for the "measure before you switch" guidance.
+  - [`ComposablePage`](../foundations/assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/ComposablePage.kt)
+    — Jetpack Compose; lives in the optional sibling module
+    [`:foundations:assemblekit-compose`](../foundations/assemblekit-compose/README.md)
+    so XML-only feature modules pay zero Compose toolchain cost.
+  All three obey the same `Page` lifecycle / `PageContext` / Shell VM
+  contract; the Compose flavour additionally re-publishes `PageContext`
+  as a `CompositionLocal` (see Rule M6).
 - A business feature module **must not** ship a class that extends
   `AppCompatActivity` directly without going through `PageHostActivity`.
 
@@ -98,6 +109,17 @@ not "caught in review", not "trapped in tests", *impossible*.
   delegate; it is also a `MavericksViewModel<S>`, just keyed per-Page so
   multiple instances of the same Page type don't share state. Never use
   raw `MutableStateFlow` / `LiveData` / `var` for view state in a Page.
+- **When the single Shell VM becomes too big** (15+ state fields, 20+
+  commands, 400+ lines, or 3+ orthogonal sub-domains in one screen), do
+  not silently split state across loose objects or per-Page mirrors —
+  read [`docs/sharding-shell-vm.md`](sharding-shell-vm.md) first. The
+  short version: M2's "one Shell VM" is **"one outward-facing facade"**,
+  not "one class". You may shard into sub-VMs *behind* the facade
+  (vertical / per-feature slicing), but sub-Pages and deep widgets must
+  still see exactly one `XxxShellViewModelKey`; sub-VMs are an
+  implementation detail of the Shell and must not be published as their
+  own PageContextKeys. Horizontal slicing (a State-VM + a Logic-VM + a
+  Nav-VM) is **not** allowed.
 
 ### Rule M3 — Rendering uses Mavericks selectors only
 
@@ -195,10 +217,22 @@ constructor / setter so the deep view can call it. That is **banned**.
   - `findPageContext()` — nullable; use it in widgets whose layout
     might also be rendered in previews / snapshot tests / unit
     fixtures, so the bare inflate degrades gracefully.
+- **Compose equivalent.** When the widget is a `@Composable` hosted
+  inside a [`ComposablePage`](../foundations/assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/ComposablePage.kt),
+  the same `PageContext` is re-published as a `CompositionLocal`. Use
+  [`composeRequireConsume(key)`](../foundations/assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/LocalPageContext.kt)
+  / [`composeConsume(key)`](../foundations/assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/LocalPageContext.kt)
+  instead of `view.requirePageContext()`. The rule is identical: never
+  pass the Shell VM through `@Composable` parameters, never reach into
+  a DI container — go through the page-scoped `LocalPageContext`. The
+  resolution chain (`pageLocal → assemblyLocal → hostLocal`) is the
+  same one the View tree uses, because `ComposablePage` bridges the
+  *same* `PageContext` instance into composition.
 - The chain is `pageLocal → assemblyLocal → hostLocal`, so a Shell VM
   provided once with `provides(XxxShellViewModelKey, vm)` at assembly
   scope is automatically reachable from *every* descendant of *every*
-  Page in that assembly. There is no per-row plumbing.
+  Page in that assembly — View tree or Compose tree alike. There is no
+  per-row plumbing.
 
 Why this is preferred over taking the VM in the constructor:
 - XML inflation cannot pass non-`Context/AttributeSet` arguments. The

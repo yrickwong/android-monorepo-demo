@@ -107,7 +107,13 @@ The full rule set, anti-pattern checklist, and worked Feed example live in
 (repeated here so nobody pretends they didn't see them):
 
 1. **Hosts** extend `PageHostActivity` (or implement `PageHost`). Pages
-   extend `ViewPage` today (`ComposablePage` once the Compose module ships).
+   extend one of the three Page flavours — choice is **per page**, never
+   framework-wide: `ViewPage` (synchronous XML, the default),
+   `AsyncViewPage` (XML inflated off the main thread, for heavy layouts),
+   or `ComposablePage` (Jetpack Compose; lives in the optional sibling
+   module [`:foundations:assemblekit-compose`](foundations/assemblekit-compose/README.md)
+   so XML-only features pay zero Compose toolchain cost). All three obey
+   the same `Page` lifecycle / `PageContext` / Shell VM contract.
 2. **One Shell ViewModel per page.** A `MavericksViewModel<TState>` owned by
    the host (`ActivityViewModelContext`), provided to the assembly via
    `provides(XxxShellViewModelKey, vm)`. Sub-Pages and `ItemBinder`s call
@@ -162,7 +168,11 @@ the exhaustive list):
 Design rationale and the Feed walkthrough live in
 [`docs/architecture.md` § AssembleKit](docs/architecture.md#页面装配框架assemblekit)
 and [§ AssembleKit v2](docs/architecture.md#assemblekit-v2列表上下文多槽位host-驱动-replace).
-The full rule set: [`docs/mvi-rules.md`](docs/mvi-rules.md).
+The full rule set: [`docs/mvi-rules.md`](docs/mvi-rules.md). When a single
+Shell VM grows past the thresholds called out in Rule M2, follow the
+sharding playbook in [`docs/sharding-shell-vm.md`](docs/sharding-shell-vm.md)
+— shard *behind* the facade, never publish sub-VM keys, and don't split
+horizontally (state-VM / logic-VM / nav-VM is banned).
 
 ---
 

@@ -24,6 +24,7 @@
 |  :foundations:router   :foundations:analytics :foundations:ui    |
 |  :foundations:communicate (SPI: feature/bizlib ↔ app 反向通信)    |
 |  :foundations:assemblekit (Page / Assembly DSL · Mavericks MVI)   |
+|  :foundations:assemblekit-compose (可选 · Compose 渲染桥 · 见 §AssembleKit v2.2)|
 +-----------------------------------------------------------------+
 |  :third-party:logger                                            |
 +-----------------------------------------------------------------+
@@ -72,11 +73,12 @@ ProfileActivity (:features:profile)
 | `demo.android.application` | `:app` 唯一使用，配置 application、versionCode/Name |
 | `demo.android.feature` | `:features:*` 使用，开启 viewBinding |
 | `demo.android.bizlib` | `:bizlibs:*` 使用 |
-| `demo.android.foundation` | `:foundations:*` 使用 |
+| `demo.android.foundation` | `:foundations:*` 使用（XML/View 工具链，零 Compose 成本） |
+| `demo.android.foundation.compose` | `:foundations:*` 中**需要 Compose** 的模块使用——在 `foundation` 之上叠加 `buildFeatures.compose`、固定 `composeCompiler` 扩展版本（与 `libs.versions.toml` 中 `composeCompiler` / Kotlin 版本三方对齐）、并以 `api` 透出 Compose BOM + `runtime` / `ui` / `foundation` / `ui-tooling-preview`；今天唯一消费者是 [`:foundations:assemblekit-compose`](../foundations/assemblekit-compose/README.md) |
 | `demo.kotlin.library` | 纯 Kotlin/JVM 模块（如 `:third-party:logger`） |
 | `demo.dependency.guard` | 注册根任务：`checkDependencyRules` / `generateDependencyGraph` |
 
-> 新增的 `:foundations:communicate` 和 `:foundations:assemblekit` 都沿用 `demo.android.foundation`，无需新 plugin。
+> 大多数 foundation 模块都沿用 `demo.android.foundation`，无需新 plugin。`:foundations:assemblekit-compose` 是目前唯一例外——它走 `demo.android.foundation.compose` 以便集中管理 Compose 编译器扩展版本与 BOM；如果将来再出现"必须用 Compose 的 foundation"（例如一套 Compose 版的设计系统 shell），优先复用这个 plugin 而不是在自己的 `build.gradle.kts` 里就地启用 Compose。
 
 所有 `compileSdk`、`minSdk`、Kotlin options、JVM target、test runner、common dependencies 都集中在 `AndroidCommon.kt` 中，模块只声明自己的 `namespace` 和**业务依赖**。
 
@@ -211,12 +213,14 @@ v2 把上面的"一个页面装三个 Page"扩展到**真实业务页面常见�
 
 | 主题 | 入口 API | 解决了什么问题 |
 | --- | --- | --- |
-| Page 抽象分层 | `Page` (base) / `ViewPage` / `ComposablePage` (stub) | 让框架核心和 UI 渲染机制解耦——今天写 XML，明天接 Compose，无需改 `Assembly` / `PageContext` |
+| Page 抽象分层 | `Page` (base) / `ViewPage` / `AsyncViewPage` / `ComposablePage` (in `:foundations:assemblekit-compose`) | 让框架核心和 UI 渲染机制解耦——XML（同步或异步 inflate）和 Compose 是平级的渲染后端，`Assembly` / `PageContext` / `Shell VM` 规则三者完全共用 |
 | Scoped context locals | `provides(key, value)` / `consume(key)` / `requireConsume(key)` | 把"页面内所有 Page 都要拿的东西"（首选**就是这个页面的 Mavericks Shell VM**）一次性放在 assembly scope，子级用 `requireConsume` 取，零构造参数透传；类型化 key，跨模块不会撞名 |
 | **View-tree 访问** | `view.findPageContext()` / `view.requirePageContext()` | 任何一个 N 层深的自定义子 View / 内嵌 RecyclerView 的 ViewHolder 都能"沿 parent 链找到最近 Page 的 PageContext"，从而 `requireConsume(ShellVMKey)` 直接拿 VM——不再需要 binder/adapter 一层层把 VM 或 callback 透传进去；与 AndroidX 的 `ViewTreeLifecycleOwner` 同款机制 |
 | 多槽位挂载 | `+MyPage() at R.id.slot_xxx` | 同一个布局想塞多个 Page、又不想都堆进 `LinearLayout`；缺槽位时**install 阶段抛错**，比运行时空指针好定位 |
 | Host 驱动 replace | `assembly.replace { … }` | 登录成功/AB 切换/抽屉切换等"结构性变化"，由**宿主**整体重组当前 Assembly；触发条件**必须**从 Mavericks 状态来（`viewModel.onEach(State::structuralFlag)`），不能由 Page 自己经事件总线请求——保证旋屏/进程死后重建后结构正确 |
-| 列表渲染 | `ListPage<T>(itemsFlow, ItemBinder)` / `ItemBinder<T>` | 列表行复用父 Page 的 `PageContext`（context transparency），1000 行 ≠ 1000 个生命周期；`itemsFlow` 推荐从 `viewModel.stateFlow.map { it.xxx }.distinctUntilChanged()` 派生，**不要**直接喂 repo 的 hot flow |
+| 列表渲染（单类型） | `ListPage<T>(itemsFlow, ItemBinder)` / `ItemBinder<T>` | 列表行复用父 Page 的 `PageContext`（context transparency），1000 行 ≠ 1000 个生命周期；`itemsFlow` 推荐从 `viewModel.stateFlow.map { it.xxx }.distinctUntilChanged()` 派生，**不要**直接喂 repo 的 hot flow |
+| 列表渲染（异构） | `MultiTypeListPage<T>(itemsFlow) { bind<C1>(...); bind<C2>(...) }` | 同一信息流里 `Note` / `Ad` / `LoadingRow` 等多种行混排时，按 `Class.isInstance` 路由到各自的 `ItemBinder`；`ItemBinder<T>` 接口不变，老代码零迁移；DiffUtil 跨类型一律视为不同 item，避免 RecyclerView 试图把 `AdRow` 视图重绑成 `NoteRow` |
+| 重布局异步 inflate | `AsyncViewPage(layoutResId)` + `onViewInflated(view)` | 当某个 Page 的布局确实复杂（深层级 `ConstraintLayout`、多个 `<include>`、行内自定义 View 构造慢）且不是首屏 hero 时，用 `AsyncLayoutInflater` 把 inflate 推到后台线程，主线程只挂一个占位 `FrameLayout`；占位上立刻盖好 `PageContext`，深层子 View 在 inflate 之前也能 `findPageContext()`；detach guard 保证迟到的 inflate 不会回调到已销毁的 Page。**先量再换**——盲改对 above-the-fold 是负优化 |
 
 **Scoped locals 的三层 fallback**（与三层 scope 一一对应）：
 
@@ -379,8 +383,12 @@ class NoteActionBar(ctx: Context, attrs: AttributeSet?) : LinearLayout(ctx, attr
 **当前刻意不支持的能力**（以及怎么绕开）：
 
 - 跨 Assembly 通信（同一宿主里两个 Assembly 互发事件）——**不允许**。让宿主当中转：两个 Assembly 都向 `hostBus` 发，宿主用 `hostBus.on { … }` 决定路由。
-- 异构列表（不同类型的行混排）——v2 用两个 `ListPage` 串联或等后续 `MultiTypeListPage`。
-- Compose 真实接入——`ComposablePage` 是 stub，落地放在 `:foundations:assemblekit-compose`（单独模块，便于不引 Compose 的工程零成本继续用 ViewPage）。
+- 异步 inflate 自动开启——`AsyncViewPage` 必须**显式**选；框架不会偷偷把同步 inflate 替换成异步，因为对 above-the-fold 的 hero Page 这会把首帧空白时长摆上台面。先 trace 再换。
+- **统一的 `DataLoadManager` / `IDataPreloader`（不引入，且短期不计划引入）**——参考过 Terpsi 同名能力，结论是它把 5 个不同的关注点糊进一个模块（异步流入 UI、三态、自动取消、缓存、跨屏预加载/in-flight 去重）。前 4 项 Mavericks `Async<T>` + `viewModelScope` + Repository 已经吃掉；只剩"跨屏预加载"和"in-flight 共享"是真空白，而这个空白在仓库现状里**没有任何真实使用场景**。等真的出现，就在对应 Repository 里加一个 `ConcurrentHashMap<K, Deferred<V>> + prefetch(k) / load(k)` 即可（约 10 行）；只有当这类重复出现 10+ 次且缓存策略可统一时，才值得抽 `Prefetcher<K, V>` 工具类——并且仍然**不**进 `PageContext`、**不**起新模块、**不**接管"业务能力"，只做 key 维度的请求合并。任何"我想给数据加载抽个框架"的提案，都要先在 PR 描述里逐条回答这一段。
+
+> **已经在 v2.1 落地**：异构列表（`MultiTypeListPage<T>` + 类型路由）、重布局异步 inflate（`AsyncViewPage` + `AsyncLayoutInflater`）。Shell VM 在单屏功能堆叠后体积失控的拆分指南见 [`docs/sharding-shell-vm.md`](sharding-shell-vm.md)。
+>
+> **v2.2 已落地**：Compose 真实接入——[`:foundations:assemblekit-compose`](../foundations/assemblekit-compose/README.md) 模块提供 `ComposablePage`，与 `ViewPage` / `AsyncViewPage` 互为平级；通过 `LocalPageContext`（`CompositionLocal<PageContext?>`）把 `PageContext` 桥进 Composable，Composable 端用 `composeRequireConsume(XxxShellViewModelKey)` 拿到 Shell VM——跟 View 世界 `view.requirePageContext().requireConsume(...)` 完全同构。`Page.materialize()` 同步从 `internal abstract` 放宽到 `protected abstract`，原因是 Kotlin `internal` 跨 Gradle module 不能 override（详见 [`Page.kt`](../foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt) 内的注释）。Compose 编译器扩展、BOM 与 `mavericks-compose` 通过 `demo.android.foundation.compose` convention plugin 集中管理，**不写 Compose 的模块**（`:bizlibs:*` 全部、`:features:*` 走 XML 的 page）**不引入任何 Compose 依赖**，编译时间无回退。
 
 ### 2. 依赖边界校验
 
@@ -436,10 +444,13 @@ monorepo-demo/
 │   ├── analytics/
 │   ├── ui/
 │   ├── communicate/            # SPI：跨层反向通信（feature/bizlib ← app）
-│   └── assemblekit/            # Page / Assembly DSL + Mavericks MVI 集成
-│                               # v2: ViewPage / ComposablePage (stub) / ListPage
-│                               #     + scoped locals (provides/consume)
-│                               #     + per-page at(R.id) + Assembly.replace { }
+│   ├── assemblekit/            # Page / Assembly DSL + Mavericks MVI 集成
+│   │                           # v2: ViewPage / AsyncViewPage
+│   │                           #     ListPage / MultiTypeListPage
+│   │                           #     + scoped locals (provides/consume)
+│   │                           #     + per-page at(R.id) + Assembly.replace { }
+│   └── assemblekit-compose/    # 可选 · Compose 桥：ComposablePage + LocalPageContext
+│                               # 不写 Compose 的模块零成本不依赖
 ├── third-party/                # 三方 / 适配
 │   └── logger/
 ├── build-logic/                # Convention plugins（独立 included build）

@@ -12,9 +12,10 @@ app/                     :app                   组合根，注册路由
 features/                :features:login/home/profile/feed
 bizlibs/                 :bizlibs:account/user
 foundations/             :foundations:common/network/storage/router/analytics/ui
-                         :foundations:communicate  (SPI: feature/bizlib ↔ app)
-                         :foundations:assemblekit  (Page / Assembly DSL + Mavericks MVI)
-                                                   v2: ListPage + scoped locals + at(id) + replace
+                         :foundations:communicate         (SPI: feature/bizlib ↔ app)
+                         :foundations:assemblekit         (Page / Assembly DSL + Mavericks MVI)
+                                                           v2: ListPage + scoped locals + at(id) + replace
+                         :foundations:assemblekit-compose (可选 · Compose 桥 · 不写 Compose 的模块零成本不依赖)
 third-party/             :third-party:logger
 build-logic/             Convention Plugins（独立 included build）
 tools/affected-modules/  affected_modules.py        增量构建影响范围分析
@@ -202,6 +203,10 @@ bash tools/docs-sync/install-hooks.sh
 
 - [`AGENTS.md`](AGENTS.md) — Agent / 人类工作规则（R0 文档同步契约就在这里）
 - [`docs/architecture.md`](docs/architecture.md) — 整体架构、分层、业务流程、AssembleKit v2
+- [`docs/mvi-rules.md`](docs/mvi-rules.md) — Mavericks MVI 6 条不可商量规则 + 反模式清单
+- [`docs/sharding-shell-vm.md`](docs/sharding-shell-vm.md) — Shell ViewModel 体积失控时的拆分指南
 - [`docs/module-rules.md`](docs/module-rules.md) — 依赖规则、矩阵、违规示例
 - [`docs/doc-sync-rules.md`](docs/doc-sync-rules.md) — 文档同步规则人类详述版
+- [`foundations/assemblekit/README.md`](foundations/assemblekit/README.md) — AssembleKit 框架使用手册
+- [`foundations/assemblekit-compose/README.md`](foundations/assemblekit-compose/README.md) — AssembleKit 的 Compose 桥模块
 - [`docs/dependency-graph.html`](docs/dependency-graph.html) — 依赖图（先跑 `generateDependencyGraph` 生成）

@@ -39,8 +39,8 @@ foundations/assemblekit/
     ├── res/values/ids.xml                 # assemblekit_page_context_tag
     └── java/com/demo/foundations/assemblekit/
         ├── Page.kt                        # 抽象基类（生命周期/SavedState/Mavericks 桥）
-        ├── ViewPage.kt                    # XML 风格 Page（默认子类型）
-        ├── ComposablePage.kt              # Compose 风格 Page（stub）
+        ├── ViewPage.kt                    # XML 风格 Page（默认子类型，主线程 inflate）
+        ├── AsyncViewPage.kt               # XML 风格 Page，AsyncLayoutInflater 后台 inflate
         ├── Assembly.kt                    # 一组 Page 的容器，支持 replace
         ├── AssemblyDsl.kt                 # `assemble { +PageA() at R.id... }` DSL
         ├── MountSpec.kt                   # Page + 挂载容器解析
@@ -49,7 +49,8 @@ foundations/assemblekit/
         ├── PageViewModel.kt               # `by pageViewModel()` 委托
         ├── ViewTreePageContext.kt         # View.findPageContext() / requirePageContext()
         ├── list/
-        │   ├── ListPage.kt                # RecyclerView 列表 Page
+        │   ├── ListPage.kt                # RecyclerView 列表 Page（单类型）
+        │   ├── MultiTypeListPage.kt       # RecyclerView 列表 Page（多类型，按 Class 路由）
         │   └── ItemBinder.kt              # 行渲染契约
         ├── local/
         │   └── ScopedContainer.kt         # provides/consume 容器 + PageContextKey<T>
@@ -58,6 +59,12 @@ foundations/assemblekit/
             └── ScopedCommandBus.kt        # 请求-响应
 ```
 
+> **Compose 风格 Page 在哪？** 第三个 Page 子类 [`ComposablePage`](../assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/ComposablePage.kt)
+> 故意拆到了独立的姊妹模块 [`:foundations:assemblekit-compose`](../assemblekit-compose/README.md)，
+> 这样**只写 XML 的 feature 模块就不必拉 Compose 编译器和运行时**。需要 Compose 的 feature
+> 自行 `implementation(project(":foundations:assemblekit-compose"))` 即可，所有 `Page` /
+> `PageContext` / Shell VM 契约和本模块完全一致。
+
 **类层次一图（Mermaid）：**
 
 ```mermaid
@@ -65,9 +72,12 @@ flowchart TD
     Host["PageHost\n(Activity / Fragment)"] -->|owns| Asm["Assembly"]
     Asm -->|contains 1..N| Page
     Page --> ViewPage
-    Page --> ComposablePage
+    Page --> AsyncViewPage
+    Page -.->|in :foundations:assemblekit-compose| ComposablePage
     ViewPage --> ListPage["ListPage<T>"]
+    ViewPage --> MultiTypeListPage["MultiTypeListPage<T>"]
     ListPage -->|delegates row to| ItemBinder["ItemBinder<T>"]
+    MultiTypeListPage -->|delegates row to| ItemBinder
     Host -->|provides via DSL| Ctx["PageContext\n(scopes + buses + locals)"]
     Ctx -->|injected into| Page
     Page -->|by| PageVM["pageViewModel<VM, S>()"]
@@ -193,6 +203,41 @@ detach             → DESTROYED        // pageScope 取消，bus / VM 订阅自
 
 **重要**：[`Page.invalidate()`](src/main/java/com/demo/foundations/assemblekit/Page.kt:107) 被框架置空。Mavericks 默认的"整页 invalidate"不准用——所有 UI 订阅一律走 `onEach(prop)` / `onAsync(prop)`，强制按需重渲，效率和精度都更好。
 
+### 5.1 [`AsyncViewPage`](src/main/java/com/demo/foundations/assemblekit/AsyncViewPage.kt)：重布局异步 inflate
+
+[`ViewPage`](src/main/java/com/demo/foundations/assemblekit/ViewPage.kt) 在 [`Page.performAttach`](src/main/java/com/demo/foundations/assemblekit/Page.kt:212) 里**同步** inflate 布局，对绝大多数 Page 来说是正确选择（简单、可预测、零状态机）。当一屏里某个 Page 的根布局**确实很重**——层级深、`ConstraintLayout` 复杂、有多个 `<include>`、行内自定义 View 构造开销大——而它又不是"首屏首字节"必须立刻显示的内容时，可以换成 [`AsyncViewPage`](src/main/java/com/demo/foundations/assemblekit/AsyncViewPage.kt)：
+
+```kotlin
+class HeavyDetailPage : AsyncViewPage(R.layout.page_heavy_detail) {
+    private val viewModel: HeavyDetailViewModel by pageViewModel()
+
+    override fun onViewInflated(view: View) {
+        val binding = PageHeavyDetailBinding.bind(view)
+        viewModel.onEach(HeavyDetailState::title) { binding.title.text = it }
+    }
+}
+```
+
+它在 `onCreateView` 里返回一个**占位 `FrameLayout`**（可指定固定高度避免布局抖动），同时把 `layoutResId` 丢给 [`AsyncLayoutInflater`](https://developer.android.com/reference/androidx/asynclayoutinflater/view/AsyncLayoutInflater) 在后台线程 inflate。布局返回到主线程后，真实 View 会被加进占位、被自动盖上同一个 `PageContext`，然后子类的 `onViewInflated(view)` 被回调一次。
+
+| 取舍 | 选 `ViewPage` | 选 `AsyncViewPage` |
+| --- | --- | --- |
+| 主线程 inflate 耗时 < 3ms | ✓ | – |
+| 测过首帧、确实超预算 | – | ✓ |
+| 是首屏 hero 区，必须立刻渲染 | ✓ | – |
+| 在折叠之下 / 次要槽位 / 弹层延后内容 | – | ✓ |
+| 想要可预测的同步生命周期 | ✓ | – |
+| 接受"占位 → 渲染"两步可见，换主线程不卡 | – | ✓ |
+
+关键约定（**写之前先读**）：
+
+- 子类**不要**覆盖 `onCreateView` / `onViewCreated` —— 这两个被 `final` 封死了；真实初始化必须放在 `onViewInflated(view)`。
+- `onViewInflated` 可能在 Page detach 之后**永远不会被调用**（host 已经 finish、`Assembly.replace` 把当前 Page 换掉了）。框架做了 detach guard，迟到的 inflate 结果会被丢弃并 warn 一行日志。**不要**在 inflate 完成之外的代码路径里假设 `findViewById` 已经能拿到子 View。
+- `pageScope` / Mavericks `onEach` 订阅可以放在 `onViewInflated` 里，也可以更早放（例如收到事件想触发刷新）；但任何**对真实 View 的引用**必须在 `onViewInflated` 之后再用。
+- View-tree `PageContext` 在占位上**立刻**就有（`Page.performAttach` 已经盖戳），所以即使在 inflate 完成之前，深层子 View 也能用 `findPageContext()`——真实 View 落地时框架会再盖一次戳。
+
+性能心法：**先量再换**。盲改 `AsyncViewPage` 会把"首帧空白几十毫秒"摆上台面，对 above-the-fold 的 Page 反而是负优化。Systrace / `Choreographer` 调过、定位到 inflate 是瓶颈、再换。
+
 ---
 
 ## 6. PageContext：三层 scope / bus / locals
@@ -294,6 +339,41 @@ assemble {
 **关键设计**：每行 `itemView` 会被框架自动盖上**父 Page 的 PageContext**（[`ListPage.kt:128`](src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt:128)），所以行内自定义 View / 嵌套 RecyclerView 的 ViewHolder 都能用 `view.requirePageContext()` 直接拿到同一个 Shell VM——见下一节。
 
 **为什么行不是 Page？** 一千行的 feed 不应该分配一千个 LifecycleOwner / Mavericks VM / 事件 bus。Binder 是无状态渲染契约；状态在 `T` 自己或者 Shell VM 里。
+
+### 7.1 异构列表：[`MultiTypeListPage<T>`](src/main/java/com/demo/foundations/assemblekit/list/MultiTypeListPage.kt)
+
+[`ListPage<T>`](src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt) 适合"一种行"的列表（95% 场景）。当一条信息流里**同时**夹着 `Note` / `Ad` / `LoadingPlaceholder` 三种行时，用 [`MultiTypeListPage<T>`](src/main/java/com/demo/foundations/assemblekit/list/MultiTypeListPage.kt) 把每种行交给各自的 [`ItemBinder`](src/main/java/com/demo/foundations/assemblekit/list/ItemBinder.kt)：
+
+```kotlin
+sealed interface FeedRow {
+    data class NoteRow(val note: Note)   : FeedRow
+    data class AdRow(val ad: Ad)         : FeedRow
+    data object  LoadingRow              : FeedRow
+}
+
+class NoteRowBinder    : ItemBinder<FeedRow.NoteRow>    { /* … */ }
+class AdRowBinder      : ItemBinder<FeedRow.AdRow>      { /* … */ }
+class LoadingRowBinder : ItemBinder<FeedRow.LoadingRow> { /* … */ }
+
+// 在 assemble { } 里：
++MultiTypeListPage<FeedRow>(
+    itemsFlow = vm.stateFlow.map { it.feedRows }.distinctUntilChanged(),
+) {
+    bind<FeedRow.NoteRow>(NoteRowBinder())
+    bind<FeedRow.AdRow>(AdRowBinder())
+    bind<FeedRow.LoadingRow>(LoadingRowBinder())
+} at R.id.feed_body_slot
+```
+
+设计要点：
+
+- **`ItemBinder<T>` 没改**——`NoteItemBinder` 这种现成的 binder 不用动一行代码，直接搬过来用。多类型分发是 `MultiTypeListPage` 内部按 `Class.isInstance` 路由实现的（[实现位置](src/main/java/com/demo/foundations/assemblekit/list/MultiTypeListPage.kt)）。
+- **类型注册顺序就是优先级**。当 sealed hierarchy 里某行可能匹配多个 entry（比如继承层级两层）时，更具体的 `bind<C>()` 要写在前面，先匹中的赢。
+- **未注册的行类型 = 编程错误**。遇到没注册的类型 `submitList` 会立即抛 `IllegalStateException`，错误信息里带具体类名，把这种 bug 推到 review / 第一次跑就发现。不要用 `null` 或"剩下都给 default binder"语义——明确给一个 `LoadingRow` / `ErrorRow` 类型。
+- **DiffUtil 跨类型一律视为不同 item**：避免 RecyclerView 试图把 `AdRow` 视图重绑成 `NoteRow`。
+- 其余约束（`itemsFlow` 必须从 `vm.stateFlow` 派生、行内 `PageContext` 自动盖戳、`pageScope` 自动取消）与 [`ListPage`](src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt) **完全一致**。
+
+**何时不该用 `MultiTypeListPage`？** 列表里只有一种行的时候——用 [`ListPage`](src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt)，省掉一张分发表读起来更直白；hot-path 上也不用走 `Class.isInstance` 检查。两者不互相替代。
 
 ---
 
@@ -474,7 +554,9 @@ class FeedActivity : PageHostActivity() {
 | --- | --- |
 | 最小 AssembleKit 例子（单 host + 几个 Page + per-Page VM） | [`features/login`](../../features/login) |
 | 完整 Mavericks + Shell VM + ListPage + 深层 widget 取 VM + `replace` | [`features/feed`](../../features/feed) |
+| **Compose 风格 Page（姊妹模块）** | [`:foundations:assemblekit-compose`](../assemblekit-compose/README.md) |
 | MVI 6 条不可商量规则 (M1-M6) 与 12 条反模式 (A1-A12) | [`docs/mvi-rules.md`](../../docs/mvi-rules.md) |
+| 单 Shell VM 长大后怎么内部分片（保留 M2 facade） | [`docs/sharding-shell-vm.md`](../../docs/sharding-shell-vm.md) |
 | 框架在整体架构里的位置 / AssembleKit v2 设计文档 | [`docs/architecture.md`](../../docs/architecture.md) |
 | 模块依赖分层规则 | [`docs/module-rules.md`](../../docs/module-rules.md) |
 | 项目层面的工程规范 | [`AGENTS.md`](../../AGENTS.md) |
@@ -493,7 +575,7 @@ A：Activity 拦截后通过 `hostBus.emit(...)` 通知；Page 用 `onHostEvent<
 A：可以，但推荐走 [`:foundations:router`](../router)，让跨 feature 跳转保持唯一入口。
 
 **Q：Compose 怎么用？**
-A：目前 [`ComposablePage`](src/main/java/com/demo/foundations/assemblekit/ComposablePage.kt) 是 stub。等 `:foundations:assemblekit-compose` 子模块到位后，会提供 `Content()` 风格的 Page 子类型；上面所有 PageContext / Shell VM / 结构重组的规则保持不变。
+A：已落地。Compose 风格的 Page 放在姊妹模块 [`:foundations:assemblekit-compose`](../assemblekit-compose/README.md)，对外暴露 [`ComposablePage`](../assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/ComposablePage.kt)（覆盖 `@Composable Content()` 即可）和 [`LocalPageContext`](../assemblekit-compose/src/main/java/com/demo/foundations/assemblekit/compose/LocalPageContext.kt)（在 composition 里用 `composeRequireConsume(key)` 拿 Shell VM，对应 View 树的 `view.requirePageContext()`）。本模块**不依赖** Compose，纯 XML 的 feature 模块不会被迫拉 Compose 编译器。上面所有 PageContext / Shell VM / 结构重组规则保持完全一致。
 
 **Q：Mavericks 学习曲线？**
 A：90% 场景只需要四个 API：`MavericksState`、`MavericksViewModel.setState { copy(...) }`、`vm.onEach(State::prop) { ... }`、`vm.onAsync(State::asyncProp, ...)`。其它（`withState`、`@PersistState`、`MvRxStateStore`）等需要再查。

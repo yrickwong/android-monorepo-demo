@@ -24,12 +24,18 @@ import kotlinx.coroutines.Job
  * `Page` is intentionally **abstract over the rendering mechanism** — the
  * actual "produce a View" contract lives on the concrete subtypes:
  *
- *  - [ViewPage]        — classic XML / inflated View layer (default today)
- *  - [ComposablePage]  — Jetpack Compose payload (stub; ships in
- *    `:foundations:assemblekit-compose` once the team is ready)
+ *  - [ViewPage]      — classic XML / inflated View layer (default today)
+ *  - [AsyncViewPage] — same as ViewPage but inflated off the main thread
+ *                      via `AsyncLayoutInflater`
+ *  - `ComposablePage` — Jetpack Compose payload, lives in the sibling
+ *                      artifact `:foundations:assemblekit-compose`
+ *                      (so consumers that never use Compose don't pay
+ *                      the Compose toolchain cost). KDoc cannot @link
+ *                      across modules so this one is intentionally a
+ *                      bare reference.
  *
  * Everything below — lifecycle, savedstate, buses, Mavericks ViewModel
- * delegate, host bridging — is identical for both flavours.
+ * delegate, host bridging — is identical for all three flavours.
  *
  * Why not just use a Fragment?
  *  - Pages don't go on the back stack. There is no FragmentManager, no
@@ -43,7 +49,7 @@ import kotlinx.coroutines.Job
  *
  *  ```
  *  attach(ctx)     -> Lifecycle.State.CREATED
- *  materialize     -> ... (ViewPage.onCreateView / ComposablePage.Content)
+ *  materialize     -> ... (ViewPage.onCreateView / ComposablePage.Content / AsyncViewPage.onViewInflated)
  *  hostStart       -> STARTED
  *  hostResume      -> RESUMED
  *  hostPause       -> STARTED
@@ -126,12 +132,22 @@ abstract class Page(
      *
      * Concrete subtypes implement this:
      *  - [ViewPage] inflates XML and runs `onCreateView` + `onViewCreated`
-     *  - [ComposablePage] wraps a `Content()` composable in a `ComposeView`
+     *  - `ComposablePage` (in `:foundations:assemblekit-compose`) wraps a
+     *    `Content()` composable in a `ComposeView`
      *
      * The returned View is added to the assembly container by the framework;
      * subclasses must **not** add it themselves.
+     *
+     * **Visibility:** `protected` so subtypes in sibling Gradle modules
+     * (notably `:foundations:assemblekit-compose`) can `override` it.
+     * Kotlin `internal` would have been preferable for "framework only"
+     * intent, but it is enforced at the Kotlin-module boundary —
+     * separate Gradle modules cannot override `internal` declarations.
+     * Restricting to `protected` still keeps the method invisible to
+     * product code (you must be inside a `Page` subclass to call it),
+     * which is the practical guarantee we need.
      */
-    internal abstract fun materialize(inflater: LayoutInflater, parent: ViewGroup): View
+    protected abstract fun materialize(inflater: LayoutInflater, parent: ViewGroup): View
 
     /**
      * Generic teardown hook. Called after the View is detached and right

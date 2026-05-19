@@ -15,8 +15,10 @@ import android.view.View
  *
  * **Who stamps the tag?** (You almost never call [setPageContext] by hand.)
  *  - [Page.performAttach] stamps the View returned by `materialize` —
- *    every Page's root view, [ViewPage] or [ComposablePage] alike, is
- *    eligible immediately after the framework adds it to the container.
+ *    every Page's root view, regardless of flavour ([ViewPage],
+ *    [AsyncViewPage], or `ComposablePage` from
+ *    `:foundations:assemblekit-compose`), is eligible immediately
+ *    after the framework adds it to the container.
  *  - [com.demo.foundations.assemblekit.list.ListPage]'s internal adapter
  *    stamps each row's `itemView` so deep subviews / nested RecyclerView
  *    ViewHolders inside a row can also resolve the parent Page's context.
