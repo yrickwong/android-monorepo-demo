@@ -1,0 +1,44 @@
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageHost.kt
+  h_e1e7f0e869c039 16-18,20-23,25-27,29-31,35,38,41,45-47,49-51,66-68,70-72,78,94-97,117-118,122-124,147
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/bus/ScopedCommandBus.kt
+  h_e1e7f0e869c039 12,14-16,18-25,27,32-34,42-43,63-64
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/MultiTypeListPage.kt
+  h_e1e7f0e869c039 19-22,24,26-33,35-37,39,52,62,64-75,77,79-87,109-111,160-161,175-181,194-196,240-242,244-246,254-255,263-265
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Assembly.kt
+  h_e1e7f0e869c039 18,20-21,23-25,27-29,31-33,38-39,41-43,45-48,52-54,60,66,70,87-89,91-92,98,103-104,108,117-119,125,150-152,156-158,165-166,198,202-205,207-216,218-219,222,231-239,247-248,268-269,272
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageViewModel.kt
+  h_e1e7f0e869c039 13-16,18-23,25-29,31,40,59,63-65
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/local/ScopedContainer.kt
+  h_e1e7f0e869c039 6,8-11,13,20,27-28,33-36,38-41,43-46,48-51,59,61-62,66,74-76,89,98,102-103,105-106,116-117
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewTreePageContext.kt
+  h_e1e7f0e869c039 6-8,10-14,16-24,26-27,44-48,50-54,56-60,67-71,84-89
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/AsyncViewPage.kt
+  h_e1e7f0e869c039 12-14,16,18-26,28-35,37,39-46,48,50-62,64,77-82,94-96,98-99,104-106,110,123-125,132-138,151-153,156
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/AssemblyDsl.kt
+  h_e1e7f0e869c039 9-10,16-18,21,28-29,35-36,45-47,57,65,76-78,80-81,99-100,102,104,113,122-123,125-130
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt
+  h_e1e7f0e869c039 21-22,24-25,27-35,37-38,40-46,48,57,62-65,71,81,85-87,92,96-98,104,108-111,118,126,130-131,133-136,138-139,141-148,153-156,161,164,169,174,179,182,186,190-193,197,201-205,207-208,215,222-224,232-233,240-244,247-249,261-264,268-271,277,289-291,293-295,298,309-310
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageContext.kt
+  h_e1e7f0e869c039 10,12-16,18,20-22,24-26,28-31,51-54,56-60,67-69,74-75,77-78,83
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/bus/ScopedEventBus.kt
+  h_e1e7f0e869c039 11,13,15-24,26-27,29-30,35-37,44,54-55,57-58
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt
+  h_e1e7f0e869c039 19-20,22-23,25-36,38,44,49-51,53-59,74-76,84,94-96,108-110,123-127
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/MountSpec.kt
+  h_e1e7f0e869c039 8,10-11,14,16,21-24,32,34-40
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ItemBinder.kt
+  h_e1e7f0e869c039 8,10-12,14-18,20,36-40,45-46,48-49,54-56,61-63,68-71,76-78
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewPage.kt
+  h_e1e7f0e869c039 8-9,11-13,15,17-25,27,45,48,51,54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "9a0b7a9111074dd617598ab85535e34e87633809",
+  "prompts": {},
+  "humans": {
+    "h_e1e7f0e869c039": {
+      "author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
