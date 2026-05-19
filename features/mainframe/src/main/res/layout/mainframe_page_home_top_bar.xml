@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HomeTopBarPage 的 root view：原 fragment_home_pane.xml 中 top_bar FrameLayout 的内容。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingHorizontal="@dimen/mainframe_space_lg">
+
+    <!-- 头像（点击进个人页） -->
+    <View
+        android:id="@+id/mainframe_home_btn_avatar"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_gravity="center_vertical|start"
+        android:background="@drawable/mainframe_bg_avatar_placeholder"
+        android:contentDescription="@string/mainframe_cd_profile"
+        android:focusable="true" />
+
+    <!-- 顶部标题 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="@string/mainframe_title_home"
+        android:textColor="@color/mainframe_text_primary"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <!-- 消息入口 -->
+    <FrameLayout
+        android:id="@+id/mainframe_home_btn_messages"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|end"
+        android:contentDescription="@string/mainframe_cd_messages"
+        android:focusable="true">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:padding="6dp"
+            android:text="✉"
+            android:textColor="@color/mainframe_text_primary"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/mainframe_home_badge_messages"
+            android:layout_width="wrap_content"
+            android:layout_height="18dp"
+            android:layout_gravity="end|top"
+            android:background="@drawable/mainframe_bg_red_dot"
+            android:gravity="center"
+            android:minWidth="18dp"
+            android:paddingHorizontal="5dp"
+            android:textColor="@android:color/white"
+            android:textSize="10sp"
+            tools:text="8"
+            xmlns:tools="http://schemas.android.com/tools" />
+    </FrameLayout>
+</FrameLayout>

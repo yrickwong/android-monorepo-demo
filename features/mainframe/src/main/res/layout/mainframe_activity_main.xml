@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    MainActivity 的根布局：一个 SlidePaneContainer。
+    所有 3 个 Pane（HomePaneHostFragment / ProfilePaneHostFragment /
+    MessagesPaneHostFragment）都由 SlidePane 框架在 attach 时注入到对应槽位。
+-->
+<com.demo.foundations.slidepane.SlidePaneContainer
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mainframe_slide_pane_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="false" />

@@ -42,5 +42,13 @@ object Router {
         const val HOME = "home"
         const val PROFILE = "profile"
         const val FEED = "feed"
+
+        /**
+         * Three-pane sliding main frame demo (`:features:mainframe` + `:foundations:slidepane`).
+         * Hosts a [com.demo.foundations.slidepane.SlidePaneContainer] with CENTER (Home) +
+         * START (Profile) + END (Messages); each pane is a `PageHostFragment` running its own
+         * `assemble {}`. This is the "AssembleKit under high complexity" showcase.
+         */
+        const val MAINFRAME = "mainframe"
     }
 }

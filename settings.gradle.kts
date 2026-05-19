@@ -31,6 +31,7 @@ include(":features:login")
 include(":features:home")
 include(":features:profile")
 include(":features:feed")
+include(":features:mainframe")
 
 // :bizlibs:*
 include(":bizlibs:account")
@@ -46,6 +47,7 @@ include(":foundations:ui")
 include(":foundations:communicate")
 include(":foundations:assemblekit")
 include(":foundations:assemblekit-compose")
+include(":foundations:slidepane")
 
 // :third-party:*
 include(":third-party:logger")

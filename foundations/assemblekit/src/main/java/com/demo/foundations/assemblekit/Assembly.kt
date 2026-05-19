@@ -181,7 +181,29 @@ class Assembly internal constructor(
 
         try {
             val view = page.performAttach(ctx, mountTarget)
-            mountTarget.addView(view, defaultLayoutParams(mountTarget))
+            // LayoutParams 处理策略（v2.1 修复）：
+            //  1) 如果 Page 的 root view 已经带有 layoutParams——无论是 XML
+            //     inflate(parent, false) 推出来的（带 parent 类型对应的
+            //     LP 子类），还是 Page 自己 `apply { layoutParams = ... }`
+            //     程序化创建的——一律**尊重**，不再覆盖。
+            //  2) 仅当 view.layoutParams == null 时，才回退到框架默认
+            //     ([defaultLayoutParams])。这种情况只会发生在：开发者
+            //     用 `View(ctx)` / `inflate(layoutId, null)` 等方式构造
+            //     view 又**没有**手动设置 LP——属于少数兜底场景。
+            //
+            // 修复背景：早期版本无条件 `addView(view, defaultLayoutParams(...))`，
+            // 把 Page 显式声明的 MATCH×MATCH 直接踩成 MATCH×WRAP。对于
+            // SwipeRefreshLayout / LinearLayoutManager 这种支持
+            // auto-measure 的 root 没有可观察的症状；但当 root 是 bare
+            // RecyclerView + StaggeredGridLayoutManager（isAutoMeasureEnabled
+            // = false）时，WRAP 模式下高度直接坍缩成 0，整页空白。典型
+            // 受害者：features/mainframe ProfileContentPage。
+            val existingLp = view.layoutParams
+            if (existingLp != null) {
+                mountTarget.addView(view)
+            } else {
+                mountTarget.addView(view, defaultLayoutParams(mountTarget))
+            }
             attached += page
             pageMountTargets[page] = mountTarget
             Logger.d(
@@ -283,6 +305,24 @@ class Assembly internal constructor(
     private fun derivePageId(page: Page, index: Int): String =
         "${host.hostId}::${page.javaClass.simpleName}#$index"
 
+    /**
+     * 兜底 LayoutParams：仅在 Page 的 root view **没有**自己声明 LP 时使用
+     * （见 [attachPage] 中的分支）。
+     *
+     * 设计选择：
+     *  - **LinearLayout（stack 模式）** —— `MATCH × WRAP`：每个 Page 是栈
+     *    里的一格，把宽度撑满、高度按内容自适应是最常见的需求。
+     *  - **非 LinearLayout（slot 模式，FrameLayout / ConstraintLayout 等）**
+     *    —— `MATCH × MATCH`：槽位的尺寸由宿主布局事先约束好，Page
+     *    塞进去就应该把槽位填满；如果开发者想要不同行为，请在
+     *    `onCreateView` 里给 root view 显式 setLayoutParams——分支 1 会
+     *    尊重你写下的任何尺寸。
+     *
+     * 之所以 slot 模式选 `MATCH × MATCH` 而不是历史上的 `MATCH × WRAP`：
+     * 后者会让用裸 RecyclerView（无 SwipeRefresh / 无 auto-measure LM）
+     * 的 Page 在 `WRAP_CONTENT` + `AT_MOST` 链路下塌成 0 高度（典型坑：
+     * StaggeredGridLayoutManager.isAutoMeasureEnabled() = false）。
+     */
     private fun defaultLayoutParams(target: ViewGroup): ViewGroup.LayoutParams = when (target) {
         is LinearLayout -> LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -290,7 +330,7 @@ class Assembly internal constructor(
         )
         else -> ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
         )
     }
 

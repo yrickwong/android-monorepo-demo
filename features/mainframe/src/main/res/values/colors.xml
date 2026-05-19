@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 品牌色（小红书红）-->
+    <color name="mainframe_red_primary">#FFFF2442</color>
+    <color name="mainframe_red_primary_dark">#FFD81B3D</color>
+
+    <!-- 中性色 -->
+    <color name="mainframe_text_primary">#FF1F1F1F</color>
+    <color name="mainframe_text_secondary">#FF7F7F7F</color>
+    <color name="mainframe_text_tertiary">#FFB0B0B0</color>
+    <color name="mainframe_bg_primary">#FFFFFFFF</color>
+    <color name="mainframe_bg_secondary">#FFF7F7F7</color>
+    <color name="mainframe_divider">#FFEDEDED</color>
+
+    <!-- Pane 背景占位 -->
+    <color name="mainframe_pane_profile_bg">#FFFAFAFA</color>
+    <color name="mainframe_pane_messages_bg">#FFFFFFFF</color>
+</resources>

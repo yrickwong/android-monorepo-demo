@@ -9,13 +9,15 @@
 ```
 AGENTS.md                Agent / 人类 工作规则（R0 强制：代码改动 → 文档同步）
 app/                     :app                   组合根，注册路由
-features/                :features:login/home/profile/feed
+features/                :features:login/home/profile/feed/mainframe
+                         :features:mainframe              (SlidePane 三屏滑动主框架 · AssembleKit 综合 demo)
 bizlibs/                 :bizlibs:account/user
 foundations/             :foundations:common/network/storage/router/analytics/ui
                          :foundations:communicate         (SPI: feature/bizlib ↔ app)
                          :foundations:assemblekit         (Page / Assembly DSL + Mavericks MVI)
                                                            v2: ListPage + scoped locals + at(id) + replace
                          :foundations:assemblekit-compose (可选 · Compose 桥 · 不写 Compose 的模块零成本不依赖)
+                         :foundations:slidepane           (三槽位水平滑动容器 · 与 AssembleKit 正交)
 third-party/             :third-party:logger
 build-logic/             Convention Plugins（独立 included build）
 tools/affected-modules/  affected_modules.py        增量构建影响范围分析
@@ -78,7 +80,12 @@ Launcher → Login → Home → Profile
    - `ListPage<Note>` 的 `itemsFlow` 从 `vm.stateFlow.map { it.noteList }.distinctUntilChanged()` 派生，列表"显示什么"严格跟随 VM 状态；
    - 三个 Page 用 `+HeaderPage() at R.id.feed_header_slot` 等 `at(id)` 语法挂到多槽位布局；
    - 头部的"Toggle banner"按钮 → `vm.toggleBanner()` → Activity 用 `viewModel.onEach(FeedShellState::showBanner)` 把状态翻译成 `assembly.replace { … }`，由宿主整体重组当前 Assembly（增删 `FeedBannerPage`），其他 Page 状态不丢。
-7. 全程通过 `:foundations:analytics` 打 logcat（tag 前缀 `MonorepoDemo/`）。
+7. 点击 "Open Mainframe (SlidePane + AssembleKit demo)" 进入 `:features:mainframe`——小红书"三屏滑动主框架"的还原 demo，演示 **SlidePane（容器层） + AssembleKit（内容层）** 如何正交协作：
+   - 容器层 `:foundations:slidepane` 提供 `SlidePaneContainer` + `PaneProvider` SPI，按 `PaneSlot.CENTER/START/END` 装配三个 Fragment，水平滑动 + 视差 + 蒙层动画与 AssembleKit 完全无关；
+   - 内容层每个 Pane 都是一个 `PageHostFragment`，内部用 `assemble {}` 装配多个 Page——`HomePaneHostFragment` 装 TopBar / Tabs (`ListPage`) / Feed (StaggeredGrid) / BottomBar 共 4 个 Page；`ProfilePaneHostFragment` 装 TopBar / Content（StaggeredGrid 多类型）；`MessagesPaneHostFragment` 装 TopBar / List (`MultiTypeListPage<MessageRow>`，Section + Entry 两种行)；
+   - 每个 Pane 一个 Shell VM（`HomeShellViewModel` / `ProfileShellViewModel` / `MessagesShellViewModel`），用 `Async<T>` 表达加载，Pages 通过 `requireConsume(XxxShellViewModelKey)` 共享；
+   - Pane → Activity 的命令（"打开 Profile / 关闭 Messages / 监听滑动方向"）通过 `XxxPaneActions` 接口走 `hostLocal[XxxPaneActionsKey]`，Activity 实现这些接口翻译成 `SlidePaneContainer.openSlot(...) / closeAll()`——三层（Pane 内容、Pane Actions、Slide 容器）零直接耦合。
+8. 全程通过 `:foundations:analytics` 打 logcat（tag 前缀 `MonorepoDemo/`）。
 
 > 想看页面装配框架的设计动机、三层 scope 模型与替代时机，见 [`docs/architecture.md` § 页面装配框架（AssembleKit）](docs/architecture.md#页面装配框架assemblekit)；v2 的 locals / mount / replace / list / Compose roadmap 细节见同节 [§ AssembleKit v2](docs/architecture.md#assemblekit-v2列表上下文多槽位host-驱动-replace)。
 
