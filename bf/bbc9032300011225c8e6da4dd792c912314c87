@@ -1,0 +1,49 @@
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/bus/ScopedCommandBus.kt
+  s_4e8d0387cdcac0::t_8a3e750c03c11a 12,14-16,18-24,26,31-32,40-41,61-62
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/bus/ScopedEventBus.kt
+  s_4e8d0387cdcac0::t_2a758d531594b6 11,13,15-22,24-25,27-28,33-35,42,52-53,55-56
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ListPage.kt
+  s_4e8d0387cdcac0::t_afb8d3c6deab1a 19-20,22,24-32,34,40,45-46,48-53,68-70,78,88-89,101-102,115-119
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/AssemblyDsl.kt
+  s_4e8d0387cdcac0::t_bbea3e3b85c7b0 9-10,16-17,20,27-28,34-35,44-46,56,64,75-77,79,97-98,100,102,111,120,122-126
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/MountSpec.kt
+  s_4e8d0387cdcac0::t_e5bf3a746fe2ec 8,10-11,14,16,21-23,31,33-37
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageViewModel.kt
+  s_4e8d0387cdcac0::t_5ba1018b629567 13-15,17-21,23-26,28,37,56,60-61
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/AsyncViewPage.kt
+  s_4e8d0387cdcac0::t_6d6da347a7e9c6 12-13,15,17-22,24-28,30,32-37,39,41-51,53,66-69,81-82,84,89-90,94,107-109,116-120,133-134,137
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageHost.kt
+  s_4e8d0387cdcac0::t_8aa1638fba6470 16-17,19-22,24-25,27-28,32,35,38,42-43,45-46,61-62,64-65,71,87-89,109-110,114-115,138
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/MultiTypeListPage.kt
+  s_4e8d0387cdcac0::t_1ca6c2e5611c2a 19-20,22,24-29,31-32,34,47,57,59-66,68,70-77,99-100,149-150,164-168,181-182,226-227,229-230,238,246-247
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Assembly.kt
+  s_4e8d0387cdcac0::t_df85391ffdaca4 18,20-21,23-25,27-28,30-31,36-37,39-41,43-45,49-50,56,62,66,83-84,86-87,93,98-99,103,112-113,119,144-145,149-150,157-158,190,194-196,198-204,206,209,218-224,232,252,255
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/Page.kt
+  s_4e8d0387cdcac0::t_2ce764f3c42b29 21-22,24,26-31,33-34,36-41,43,52,57-59,65,75,79-81,86,90-91,97,101-103,110,118,122,124-127,129,131-136,141-143,148,151,156,161,166,169,173,177-180,184,188-191,193-194,201,208-210,218-219,226-229,232-233,245-247,251-253,259,271-272,274-275,278,289
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/local/ScopedContainer.kt
+  s_4e8d0387cdcac0::t_60849f5e0a9320 6,8-10,12,19,26-27,32-34,36-38,40-41,43-44,52,54-55,59,67-68,81,90,94-95,97-98,108-109
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/list/ItemBinder.kt
+  s_4e8d0387cdcac0::t_e9cc6c7ed141fa 8,10-12,14-17,19,35-37,42-43,45-46,51-52,57-58,63-65,70-71
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewPage.kt
+  s_4e8d0387cdcac0::t_4ee1f0031cbba2 8-9,11-12,14,16-22,24,42,45,48,51
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/PageContext.kt
+  s_4e8d0387cdcac0::t_765b1a3e36f58e 10,12-14,16,18-20,22-23,25-27,47-49,51-53,60-62,67-68,70,75
+foundations/assemblekit/src/main/java/com/demo/foundations/assemblekit/ViewTreePageContext.kt
+  s_4e8d0387cdcac0::t_c31832e8d92bc6 6-7,9-12,14-21,23-24,41-44,46-49,51-54,61-64,77-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "bfbbc9032300011225c8e6da4dd792c912314c87",
+  "prompts": {},
+  "sessions": {
+    "s_4e8d0387cdcac0": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "cdf611d5-a559-41f8-a9ff-9eacdcea56d1",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
