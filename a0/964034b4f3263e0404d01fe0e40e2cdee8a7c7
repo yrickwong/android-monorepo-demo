@@ -1,0 +1,228 @@
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/messages/MessagesPaneHostFragment.kt
+  s_3cc96988315c61::t_d1c4cbcd8423b3 1-95
+features/mainframe/src/main/res/values/colors.xml
+  s_3cc96988315c61::t_91d07a4f7907d1 1-18
+features/mainframe/src/main/res/drawable/mainframe_bg_floating_round_btn.xml
+  s_3cc96988315c61::t_99d657450d51ed 1-6
+app/src/main/java/com/demo/monorepo/app/DemoApp.kt
+  s_3cc96988315c61::t_1179afd0a990a8 8,54
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/DefaultEdgeGestureStrategy.kt
+  s_3cc96988315c61::t_0a0c4a8d0aae6a 1-37
+features/mainframe/src/main/res/drawable/mainframe_bg_image_placeholder.xml
+  s_3cc96988315c61::t_2a85e5cc718e31 1-6
+features/mainframe/src/main/java/com/demo/features/mainframe/state/HomeShellViewModel.kt
+  s_3cc96988315c61::t_d97bec82dab218 1-55
+features/mainframe/src/main/res/color/mainframe_text_tab_pill.xml
+  s_3cc96988315c61::t_91b59e0b76ccc8 1-5
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/HomeFeedPage.kt
+  s_3cc96988315c61::t_81f654131791df 1-143
+features/mainframe/src/main/res/layout/mainframe_fragment_messages_pane_host.xml
+  s_3cc96988315c61::t_8474b76cf73f72 1-50
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/PaneTransitionAnimator.kt
+  s_3cc96988315c61::t_d70aff7e411af9 1-37
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/messages/MessagesListPage.kt
+  s_3cc96988315c61::t_2317a60811bb60 1-32
+features/mainframe/src/main/res/layout/mainframe_item_message_section.xml
+  s_3cc96988315c61::t_abfdb7145bc043 1-10
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/HomePaneHostFragment.kt
+  s_3cc96988315c61::t_48790ac0eb07a6 1-110
+features/mainframe/src/main/res/layout/mainframe_item_home_note.xml
+  s_3cc96988315c61::t_6781ea0917774c 1-91
+settings.gradle.kts
+  s_3cc96988315c61::t_40d273cb567505 34,50
+features/mainframe/src/main/res/layout/mainframe_fragment_profile_pane_host.xml
+  s_3cc96988315c61::t_e9f4ffcd6e94c6 1-43
+features/mainframe/src/main/res/drawable/mainframe_bg_edit_profile.xml
+  s_3cc96988315c61::t_323339f2673c44 1-6
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/spi/PaneProvider.kt
+  s_3cc96988315c61::t_b21c6e6349d7c2 1-52
+features/mainframe/src/main/java/com/demo/features/mainframe/PaneRegistration.kt
+  s_3cc96988315c61::t_449b875c0b7979 1-33
+features/mainframe/src/main/res/values/dimens.xml
+  s_3cc96988315c61::t_a7359cc1ffa0a2 1-24
+features/mainframe/src/main/res/layout/mainframe_item_home_tab.xml
+  s_3cc96988315c61::t_64d8c9f63e6f90 1-12
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/gesture/VerticalGestureObserver.kt
+  s_3cc96988315c61::t_2c5f321918921f 1-16
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/spi/PaneWidthSpec.kt
+  s_3cc96988315c61::t_e5f4ae8293e01d 1-25
+README.md
+  s_3cc96988315c61::t_00601326603bd8 12-13,20
+  s_3cc96988315c61::t_ce55ceb29f26b2 83-88
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/binders/HomeNoteBinder.kt
+  s_3cc96988315c61::t_70d74ff7478db5 1-72
+features/mainframe/src/main/res/layout/mainframe_page_messages_top_bar.xml
+  s_3cc96988315c61::t_3320cc535dfc9d 1-37
+features/mainframe/src/main/java/com/demo/features/mainframe/actions/ProfilePaneActions.kt
+  s_3cc96988315c61::t_07210544377c41 1-12
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/SlideProgress.kt
+  s_3cc96988315c61::t_f12802b0af652f 1-21
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/PaneState.kt
+  s_3cc96988315c61::t_e9d997717b1460 1-19
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/EdgeGestureStrategy.kt
+  s_3cc96988315c61::t_9ee531f6b5c7f1 1-27
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/CoverAnimator.kt
+  s_3cc96988315c61::t_27ffc6c21edae0 1-21
+features/mainframe/src/main/res/drawable/mainframe_bg_bottom_nav.xml
+  s_3cc96988315c61::t_19780508467952 1-6
+foundations/slidepane/src/main/AndroidManifest.xml
+  s_3cc96988315c61::t_e7f38511446e60 1-2
+foundations/slidepane/build.gradle.kts
+  s_3cc96988315c61::t_fa54a6da42f407 1-20
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/HomePaneProvider.kt
+  s_3cc96988315c61::t_e6c42be9f48932 1-17
+docs/architecture.md
+  s_3cc96988315c61::t_07998492b3e987 20,29
+  s_3cc96988315c61::t_fd0cc6c33e6793 61-63,66
+  s_3cc96988315c61::t_e0662655e65105 477,479-483
+  s_3cc96988315c61::t_25df5922064e36 500-503
+  s_3cc96988315c61::t_56ed4d9760772b 396-437
+foundations/slidepane/consumer-rules.pro
+  s_3cc96988315c61::t_8143611fe4faa7 1-4
+features/mainframe/src/main/res/drawable/mainframe_bg_profile_header.xml
+  s_3cc96988315c61::t_3df36468fd2e6e 1-10
+features/mainframe/src/main/res/drawable/mainframe_bg_input_pill.xml
+  s_3cc96988315c61::t_4fe16eb3ca201b 1-8
+features/mainframe/src/main/res/drawable/mainframe_bg_red_dot.xml
+  s_3cc96988315c61::t_5b34f978a83ab9 1-6
+foundations/router/src/main/java/com/demo/foundations/router/Router.kt
+  s_3cc96988315c61::t_44e59f06c89e1f 45-52
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/profile/ProfilePaneHostFragment.kt
+  s_3cc96988315c61::t_c0cf6cb5b5ea26 1-94
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/lifecycle/PaneLifecycleObserver.kt
+  s_3cc96988315c61::t_5bd40ae9d325fe 1-24
+features/mainframe/src/main/java/com/demo/features/mainframe/state/MessagesShellState.kt
+  s_3cc96988315c61::t_20699beea946e7 1-9,20-22
+  s_3cc96988315c61::t_8fcb051537eccd 10-19,23-54
+features/mainframe/src/main/java/com/demo/features/mainframe/state/HomeShellState.kt
+  s_3cc96988315c61::t_e2bf8784e4967f 1-13,17-29,39
+  s_3cc96988315c61::t_ec5cf8cd976220 14-16,30-38,40-52
+docs/module-rules.md
+  s_3cc96988315c61::t_fce96efcfbd1d7 124-125,131,134,136
+features/mainframe/src/main/res/layout/mainframe_page_home_top_bar.xml
+  s_3cc96988315c61::t_a859414fffe243 1-60
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/gesture/internal/VerticalGestureBroadcaster.kt
+  s_3cc96988315c61::t_ef50d2e3826cce 1-156
+features/mainframe/src/main/res/layout/mainframe_item_profile_header.xml
+  s_3cc96988315c61::t_2a783db1505ea5 1-186
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/PaneSlot.kt
+  s_3cc96988315c61::t_3ec0fbe231872d 1-17
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/SlidePaneConfig.kt
+  s_3cc96988315c61::t_05d369ee8d8536 1-28
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/HomeTopBarPage.kt
+  s_3cc96988315c61::t_d7d24a2de5da3d 1-33
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/HomeTabsPage.kt
+  s_3cc96988315c61::t_95dba1f3f3728b 1-29
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/internal/PaneFragmentManagerHelper.kt
+  s_3cc96988315c61::t_68bd3e57c26533 1-58
+app/build.gradle.kts
+  s_3cc96988315c61::t_c67d41eb8773c1 45
+features/mainframe/src/main/res/layout/mainframe_page_home_bottom_bar.xml
+  s_3cc96988315c61::t_9d86a5a78f60a9 1-72
+features/mainframe/src/main/res/layout/mainframe_page_home_feed.xml
+  s_3cc96988315c61::t_5843a9d5139d55 1-17
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/SlidePaneContainer.kt
+  s_3cc96988315c61::t_6785f2522b7e44 1-694
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/profile/ProfileContentPage.kt
+  s_3cc96988315c61::t_97db28dcaab1e4 1-175
+features/mainframe/src/main/res/drawable/mainframe_bg_tab_pill.xml
+  s_3cc96988315c61::t_2e1fa236197e00 1-15
+features/home/src/main/res/values/strings.xml
+  s_3cc96988315c61::t_1213ac86c83b75 6
+features/mainframe/src/main/res/values/strings.xml
+  s_3cc96988315c61::t_8f21a1fbafbf37 1-22
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/spi/PaneRegistry.kt
+  s_3cc96988315c61::t_db7fd00081ef46 1-65
+features/mainframe/src/main/java/com/demo/features/mainframe/state/MessagesShellViewModel.kt
+  s_3cc96988315c61::t_cb0b94c9506a8a 1-18
+features/mainframe/src/main/AndroidManifest.xml
+  s_3cc96988315c61::t_097047eba373cc 1-18
+features/mainframe/src/main/java/com/demo/features/mainframe/MainActivity.kt
+  s_3cc96988315c61::t_51ec2863a4276b 1-99
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/profile/ProfilePaneProvider.kt
+  s_3cc96988315c61::t_51fe3027c72363 1-15
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/gesture/VerticalGestureEvent.kt
+  s_3cc96988315c61::t_a1fc7cdd52c4cc 1-50
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/CompositeAnimator.kt
+  s_3cc96988315c61::t_6806f4e2561f75 1-39
+features/mainframe/src/main/java/com/demo/features/mainframe/actions/MessagesPaneActions.kt
+  s_3cc96988315c61::t_8e9cbf3e644bb2 1-11
+features/mainframe/src/main/res/layout/mainframe_page_profile_top_bar.xml
+  s_3cc96988315c61::t_d8c90f5886931d 1-49
+features/home/src/main/java/com/demo/features/home/HomeActivity.kt
+  s_3cc96988315c61::t_2bbf06b35b43d3 88-96
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/PushAnimator.kt
+  s_3cc96988315c61::t_1144bd4ba61c33 1-28
+features/mainframe/src/main/res/layout/mainframe_item_message_entry.xml
+  s_3cc96988315c61::t_264c68c7df14d6 1-78
+features/mainframe/src/main/java/com/demo/features/mainframe/state/ProfileShellViewModel.kt
+  s_3cc96988315c61::t_06e5430e89efca 1-21
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/PaneApi.kt
+  s_3cc96988315c61::t_1a2ac732e0aa3b 1-20
+features/mainframe/src/main/res/layout/mainframe_fragment_home_pane_host.xml
+  s_3cc96988315c61::t_0cb4f2b6d58de1 1-72
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/NestedScrollPolicy.kt
+  s_3cc96988315c61::t_b9d6424d0d5517 1-32
+features/mainframe/src/main/java/com/demo/features/mainframe/actions/HomePaneActions.kt
+  s_3cc96988315c61::t_e89092ae4c0d02 1-31
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/SmartNestedScrollPolicy.kt
+  s_3cc96988315c61::t_7b62c491363c0b 1-84
+features/mainframe/src/main/java/com/demo/features/mainframe/actions/MainframeActionKeys.kt
+  s_3cc96988315c61::t_07ec2f50d535ed 1-24
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/messages/binders/MessageSectionBinder.kt
+  s_3cc96988315c61::t_98217b8081b9b5 1-35
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/messages/MessagesPaneProvider.kt
+  s_3cc96988315c61::t_e2d432b86082fc 1-14
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/gesture/ScrollDirectionListener.kt
+  s_3cc96988315c61::t_6c93f13c2ba825 1-14
+features/mainframe/src/main/java/com/demo/features/mainframe/state/ProfileShellState.kt
+  s_3cc96988315c61::t_db74df6f5d92e3 1-16
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/messages/binders/MessageEntryBinder.kt
+  s_3cc96988315c61::t_55af5c01428f71 1-58
+features/mainframe/src/main/java/com/demo/features/mainframe/state/MainframeShellKeys.kt
+  s_3cc96988315c61::t_19e95b8500d55e 1-24
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/profile/binders/ProfileHeaderBinder.kt
+  s_3cc96988315c61::t_617f81caa99f3d 1-68
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/messages/MessagesTopBarPage.kt
+  s_3cc96988315c61::t_4fae0733737c21 1-27
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/DefaultParallaxAnimator.kt
+  s_3cc96988315c61::t_ccfa5e08a0d90a 1-52
+features/mainframe/build.gradle.kts
+  s_3cc96988315c61::t_b03e792f5ecf86 1-30
+features/home/src/main/res/layout/home_activity.xml
+  s_3cc96988315c61::t_dfefdce858f0da 69-77,85
+features/mainframe/src/main/java/com/demo/features/mainframe/data/MockRepository.kt
+  s_3cc96988315c61::t_f64f0f99616a05 1-156
+features/mainframe/src/main/res/layout/mainframe_activity_main.xml
+  s_3cc96988315c61::t_061fb1c4a1ce8d 1-12
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/binders/HomeTabBinder.kt
+  s_3cc96988315c61::t_d17e9c3677632a 1-45
+features/mainframe/src/main/res/drawable/mainframe_bg_avatar_placeholder.xml
+  s_3cc96988315c61::t_8c916b4cdced58 1-5
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/ScrimAnimator.kt
+  s_3cc96988315c61::t_5b838811d3b6e3 1-56
+gradle/libs.versions.toml
+  s_3cc96988315c61::t_4d9755a206408a 14-15,45-48
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/profile/ProfileTopBarPage.kt
+  s_3cc96988315c61::t_f40848d3c12237 1-28
+features/mainframe/src/main/java/com/demo/features/mainframe/pages/home/HomeBottomBarPage.kt
+  s_3cc96988315c61::t_065317c9a59862 1-87
+foundations/slidepane/src/main/java/com/demo/foundations/slidepane/strategy/PaneLoadingStrategy.kt
+  s_3cc96988315c61::t_347b35e653c953 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "a0964034b4f3263e0404d01fe0e40e2cdee8a7c7",
+  "prompts": {},
+  "sessions": {
+    "s_3cc96988315c61": {
+      "agent_id": {
+        "tool": "codewiz",
+        "id": "77f73214-1010-430a-8b82-dd739816ae6e",
+        "model": "claude-4.7-opus-google:thinking"
+      },
+      "human_author": "Afire <wangyi19@xiaohongshu.com>"
+    }
+  }
+}
